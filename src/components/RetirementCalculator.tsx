@@ -1,0 +1,321 @@
+import { useState, useMemo } from 'react';
+import { Calculator, Sparkles } from 'lucide-react';
+import { 
+  CalculatorInputs, 
+  DEFAULT_INPUTS,
+  STRATEGIES
+} from '@/types/calculator';
+import { calculateRetirement, generateGuidance } from '@/utils/calculations';
+import { StepInput } from './calculator/StepInput';
+import { StrategySelect } from './calculator/StrategySelect';
+import { ToggleOption } from './calculator/ToggleOption';
+import { PortfolioChart } from './calculator/PortfolioChart';
+import { IncomeCheckpoints } from './calculator/IncomeCheckpoints';
+import { GuidancePanel } from './calculator/GuidancePanel';
+import { EducationalBox } from './calculator/EducationalBox';
+import { ResultsSummary } from './calculator/ResultsSummary';
+import { ResetButtons } from './calculator/ResetButtons';
+
+export function RetirementCalculator() {
+  const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_INPUTS);
+
+  const updateInput = <K extends keyof CalculatorInputs>(
+    key: K,
+    value: CalculatorInputs[K]
+  ) => {
+    setInputs(prev => ({ ...prev, [key]: value }));
+  };
+
+  const results = useMemo(() => calculateRetirement(inputs), [inputs]);
+  const guidance = useMemo(() => generateGuidance(inputs, results), [inputs, results]);
+
+  const handleResetSavings = () => {
+    updateInput('currentSavings', DEFAULT_INPUTS.currentSavings);
+    updateInput('monthlyContribution', DEFAULT_INPUTS.monthlyContribution);
+    updateInput('employerContribution', DEFAULT_INPUTS.employerContribution);
+  };
+
+  const handleResetWhatIf = () => {
+    updateInput('whatIfEnabled', false);
+    updateInput('ssClaimAge', DEFAULT_INPUTS.ssClaimAge);
+    updateInput('ssMonthlyBenefit', DEFAULT_INPUTS.ssMonthlyBenefit);
+    updateInput('housePayoffEnabled', false);
+  };
+
+  const handleResetAll = () => {
+    setInputs(DEFAULT_INPUTS);
+  };
+
+  return (
+    <div className="min-h-screen pb-12">
+      {/* Header */}
+      <header className="py-8 sm:py-12 px-4">
+        <div className="container max-w-5xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 mb-6">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium">Smart Retirement Planning</span>
+          </div>
+          
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
+            <span className="gradient-text">Retirement Savings</span>
+            <br />
+            <span className="text-foreground">Calculator</span>
+          </h1>
+          
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            Plan your financial future with confidence. Adjust your inputs and see 
+            real-time projections of your retirement portfolio.
+          </p>
+        </div>
+      </header>
+
+      <main className="container max-w-5xl mx-auto px-4 space-y-8">
+        {/* Educational Box */}
+        <EducationalBox />
+
+        {/* Core Inputs */}
+        <section id="currentAge" className="glass-card p-4 sm:p-6 space-y-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Calculator className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold">Your Information</h2>
+          </div>
+
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <StepInput
+              label="Current Age"
+              value={inputs.currentAge}
+              onChange={(v) => updateInput('currentAge', v)}
+              min={18}
+              max={80}
+              step={1}
+              tooltip="Your current age in years"
+            />
+            
+            <StepInput
+              label="Retirement Age"
+              value={inputs.retirementAge}
+              onChange={(v) => updateInput('retirementAge', v)}
+              min={inputs.currentAge + 1}
+              max={80}
+              step={1}
+              tooltip="When you plan to retire"
+            />
+            
+            <StepInput
+              label="Monthly Expenses"
+              value={inputs.monthlyExpenses}
+              onChange={(v) => updateInput('monthlyExpenses', v)}
+              min={0}
+              max={50000}
+              step={100}
+              prefix="$"
+              tooltip="Your expected monthly spending in retirement"
+            />
+          </div>
+
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <StepInput
+              label="Current Savings"
+              value={inputs.currentSavings}
+              onChange={(v) => updateInput('currentSavings', v)}
+              min={0}
+              step={1000}
+              prefix="$"
+              tooltip="Total retirement savings today"
+            />
+            
+            <StepInput
+              label="Monthly Contribution"
+              value={inputs.monthlyContribution}
+              onChange={(v) => updateInput('monthlyContribution', v)}
+              min={0}
+              step={50}
+              prefix="$"
+              tooltip="Your monthly retirement savings"
+            />
+            
+            <StepInput
+              label="Employer Match"
+              value={inputs.employerContribution}
+              onChange={(v) => updateInput('employerContribution', v)}
+              min={0}
+              step={50}
+              prefix="$"
+              tooltip="Monthly employer contribution"
+            />
+          </div>
+        </section>
+
+        {/* Investment Strategy */}
+        <section id="strategy" className="glass-card p-4 sm:p-6">
+          <StrategySelect
+            value={inputs.investmentStrategy}
+            onChange={(v) => updateInput('investmentStrategy', v)}
+          />
+        </section>
+
+        {/* Results Summary */}
+        <ResultsSummary results={results} />
+
+        {/* Chart */}
+        <PortfolioChart 
+          data={results.chartData}
+          retirementAge={inputs.retirementAge}
+          ssClaimAge={inputs.whatIfEnabled ? inputs.ssClaimAge : undefined}
+        />
+
+        {/* Optional Toggles */}
+        <section id="inflation" className="space-y-4">
+          <h2 className="text-lg font-semibold">Advanced Options</h2>
+          
+          <ToggleOption
+            label="Account for Inflation"
+            description="Adjust projections for rising costs over time"
+            enabled={inputs.inflationEnabled}
+            onToggle={(v) => updateInput('inflationEnabled', v)}
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <StepInput
+                label="Inflation Rate"
+                value={inputs.inflationRate}
+                onChange={(v) => updateInput('inflationRate', v)}
+                min={0}
+                max={10}
+                step={0.1}
+                suffix="%"
+              />
+              <div className="flex items-center">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={inputs.applyInflationToSS}
+                    onChange={(e) => updateInput('applyInflationToSS', e.target.checked)}
+                    className="w-4 h-4 rounded border-border"
+                  />
+                  <span className="text-sm">Apply COLA to Social Security</span>
+                </label>
+              </div>
+            </div>
+          </ToggleOption>
+          
+          <ToggleOption
+            label="Annual Contribution Increases"
+            description="Increase your contributions each year as your income grows"
+            enabled={inputs.annualIncreaseEnabled}
+            onToggle={(v) => updateInput('annualIncreaseEnabled', v)}
+          >
+            <StepInput
+              label="Annual Increase"
+              value={inputs.annualIncreaseRate}
+              onChange={(v) => updateInput('annualIncreaseRate', v)}
+              min={0}
+              max={10}
+              step={0.5}
+              suffix="%"
+            />
+          </ToggleOption>
+          
+          <ToggleOption
+            label="Different Retirement Strategy"
+            description="Use a more conservative approach after retirement"
+            enabled={inputs.retirementStrategyEnabled}
+            onToggle={(v) => updateInput('retirementStrategyEnabled', v)}
+          >
+            <StrategySelect
+              label="Retirement Investment Strategy"
+              value={inputs.retirementStrategy}
+              onChange={(v) => updateInput('retirementStrategy', v)}
+            />
+          </ToggleOption>
+        </section>
+
+        {/* What-If Section */}
+        <section id="whatif">
+          <ToggleOption
+            label="What-If Scenarios"
+            description="Model Social Security, mortgage payoff, and more"
+            enabled={inputs.whatIfEnabled}
+            onToggle={(v) => updateInput('whatIfEnabled', v)}
+          >
+            <div className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <StepInput
+                  label="Social Security Claim Age"
+                  value={inputs.ssClaimAge}
+                  onChange={(v) => updateInput('ssClaimAge', v)}
+                  min={62}
+                  max={70}
+                  step={1}
+                  tooltip="Age when you'll start receiving SS benefits"
+                />
+                <StepInput
+                  label="Expected SS Monthly Benefit"
+                  value={inputs.ssMonthlyBenefit}
+                  onChange={(v) => updateInput('ssMonthlyBenefit', v)}
+                  min={0}
+                  step={100}
+                  prefix="$"
+                  tooltip="Your estimated monthly SS benefit at claim age"
+                />
+              </div>
+              
+              <ToggleOption
+                label="Mortgage Payoff"
+                description="Account for reduced expenses after paying off your home"
+                enabled={inputs.housePayoffEnabled}
+                onToggle={(v) => updateInput('housePayoffEnabled', v)}
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <StepInput
+                    label="Payoff Age"
+                    value={inputs.housePayoffAge}
+                    onChange={(v) => updateInput('housePayoffAge', v)}
+                    min={inputs.currentAge}
+                    max={90}
+                    step={1}
+                  />
+                  <StepInput
+                    label="Current Mortgage Payment"
+                    value={inputs.currentMortgagePayment}
+                    onChange={(v) => updateInput('currentMortgagePayment', v)}
+                    min={0}
+                    step={100}
+                    prefix="$"
+                  />
+                </div>
+              </ToggleOption>
+            </div>
+          </ToggleOption>
+        </section>
+
+        {/* Income Checkpoints */}
+        <IncomeCheckpoints checkpoints={results.checkpoints} />
+
+        {/* Guidance */}
+        <GuidancePanel items={guidance} isOnTrack={results.isOnTrack} />
+
+        {/* Reset Buttons */}
+        <div className="flex justify-center">
+          <ResetButtons
+            onResetSavings={handleResetSavings}
+            onResetWhatIf={handleResetWhatIf}
+            onResetAll={handleResetAll}
+          />
+        </div>
+
+        {/* Disclosure */}
+        <footer className="text-center text-xs text-muted-foreground max-w-2xl mx-auto">
+          <p className="mb-2">
+            <strong>Educational purposes only.</strong> This calculator provides estimates 
+            based on the assumptions you enter. Actual investment returns, inflation, 
+            and other factors may vary significantly.
+          </p>
+          <p>
+            Consult a qualified financial advisor before making investment decisions. 
+            Past performance does not guarantee future results.
+          </p>
+        </footer>
+      </main>
+    </div>
+  );
+}
