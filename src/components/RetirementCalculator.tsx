@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
-import { Calculator, Sparkles } from 'lucide-react';
+import { Calculator, Sparkles, Wallet } from 'lucide-react';
 import { 
   CalculatorInputs, 
   DEFAULT_INPUTS,
-  STRATEGIES
+  OtherIncome
 } from '@/types/calculator';
 import { calculateRetirement, generateGuidance } from '@/utils/calculations';
 import { StepInput } from './calculator/StepInput';
@@ -15,6 +15,7 @@ import { GuidancePanel } from './calculator/GuidancePanel';
 import { EducationalBox } from './calculator/EducationalBox';
 import { ResultsSummary } from './calculator/ResultsSummary';
 import { ResetButtons } from './calculator/ResetButtons';
+import { OtherIncomeSection } from './calculator/OtherIncomeSection';
 
 export function RetirementCalculator() {
   const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_INPUTS);
@@ -40,6 +41,7 @@ export function RetirementCalculator() {
     updateInput('ssClaimAge', DEFAULT_INPUTS.ssClaimAge);
     updateInput('ssMonthlyBenefit', DEFAULT_INPUTS.ssMonthlyBenefit);
     updateInput('housePayoffEnabled', false);
+    updateInput('otherIncome', []);
   };
 
   const handleResetAll = () => {
@@ -286,6 +288,23 @@ export function RetirementCalculator() {
               </ToggleOption>
             </div>
           </ToggleOption>
+        </section>
+
+        {/* Other Income Sources */}
+        <section id="otherIncome" className="glass-card p-4 sm:p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Wallet className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold">Other Income Sources</h2>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            Add any additional income you expect during retirement — pensions, rental properties, 
+            part-time work, annuities, etc.
+          </p>
+          <OtherIncomeSection
+            incomes={inputs.otherIncome}
+            onChange={(incomes) => updateInput('otherIncome', incomes)}
+            currentAge={inputs.currentAge}
+          />
         </section>
 
         {/* Income Checkpoints */}
