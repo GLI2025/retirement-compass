@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Calculator, Sparkles, Wallet } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Calculator, Sparkles, Wallet, Activity } from 'lucide-react';
 import { 
   CalculatorInputs, 
   DEFAULT_INPUTS,
@@ -159,11 +159,46 @@ export function RetirementCalculator() {
         {/* Results Summary */}
         <ResultsSummary results={results} />
 
+        {/* Monte Carlo Toggle */}
+        <section className="glass-card p-4 sm:p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Activity className="w-5 h-5 text-primary" />
+              <div>
+                <h3 className="font-semibold">Monte Carlo Simulation</h3>
+                <p className="text-sm text-muted-foreground">
+                  Model market volatility with probability bands
+                </p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={inputs.monteCarloEnabled}
+                onChange={(e) => updateInput('monteCarloEnabled', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full" />
+            </label>
+          </div>
+          
+          {inputs.monteCarloEnabled && (
+            <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
+              <p className="text-xs text-muted-foreground">
+                Running 1,000 simulations with randomized market returns based on your investment strategy's 
+                stock/bond allocation. The chart shows the range of possible outcomes at each age.
+              </p>
+            </div>
+          )}
+        </section>
+
         {/* Chart */}
         <PortfolioChart 
           data={results.chartData}
           retirementAge={inputs.retirementAge}
           ssClaimAge={inputs.whatIfEnabled ? inputs.ssClaimAge : undefined}
+          monteCarloEnabled={inputs.monteCarloEnabled}
+          successProbability={results.successProbability}
         />
 
         {/* Optional Toggles */}

@@ -328,22 +328,171 @@ export function generateGuidance(
   return items;
 }
 
+// Monte Carlo simulation
+const MONTE_CARLO_RUNS = 1000;
+
+interface MonteCarloResult {
+  chartData: ChartDataPoint[];
+  successProbability: number;
+  requiredForSuccess: number;
+}
+
+// Box-Muller transform for normal distribution
+function randomNormal(mean: number, stdDev: number): number {
+  const u1 = Math.random();
+  const u2 = Math.random();
+  const z0 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  return mean + z0 * stdDev;
+}
+
+// Simulate a single Monte Carlo path
+function simulatePath(
+  inputs: CalculatorInputs,
+  startingBalance: number
+): number[] {
+  const strategy = STRATEGIES[inputs.investmentStrategy];
+  const retirementStrategy = inputs.retirementStrategyEnabled
+    ? STRATEGIES[inputs.retirementStrategy]
+    : strategy;
+
+  // Annual volatility based on stock/bond allocation
+  const stockVol = 0.18; // ~18% annual volatility for stocks
+  const bondVol = 0.05;  // ~5% for bonds
+
+  let balance = startingBalance;
+  let monthlyContrib = inputs.monthlyContribution + inputs.employerContribution;
+  const balances: number[] = [];
+
+  for (let age = inputs.currentAge; age <= LIFE_EXPECTANCY; age++) {
+    // Add one-time deposits
+    const deposits = inputs.oneTimeDeposits
+      .filter(d => d.ageReceived === age)
+      .reduce((sum, d) => sum + d.amount, 0);
+    balance += deposits;
+
+    balances.push(Math.max(0, balance));
+
+    const currentStrategy = age < inputs.retirementAge ? strategy : retirementStrategy;
+    const stockAlloc = currentStrategy.stockAllocation;
+    const bondAlloc = currentStrategy.bondAllocation;
+
+    // Simulate monthly returns with volatility
+    const annualVol = Math.sqrt(stockAlloc ** 2 * stockVol ** 2 + bondAlloc ** 2 * bondVol ** 2);
+    const monthlyVol = annualVol / Math.sqrt(12);
+    const expectedMonthlyReturn = currentStrategy.expectedReturn / 12;
+
+    if (age < inputs.retirementAge) {
+      // Accumulation phase
+      for (let month = 0; month < 12; month++) {
+        const monthlyReturn = randomNormal(expectedMonthlyReturn, monthlyVol);
+        balance = balance * (1 + monthlyReturn) + monthlyContrib;
+      }
+      if (inputs.annualIncreaseEnabled) {
+        monthlyContrib *= 1 + inputs.annualIncreaseRate / 100;
+      }
+    } else {
+      // Retirement phase - withdrawals
+      const monthlyExpenses = calculateMonthlyExpenses(inputs, age);
+      const ssIncome = calculateSSIncome(inputs, age);
+      const otherIncome = calculateOtherIncome(inputs, age);
+      const monthlyWithdrawal = Math.max(0, monthlyExpenses - ssIncome - otherIncome);
+
+      for (let month = 0; month < 12; month++) {
+        const monthlyReturn = randomNormal(expectedMonthlyReturn, monthlyVol);
+        balance = balance * (1 + monthlyReturn) - monthlyWithdrawal;
+        if (balance < 0) balance = 0;
+      }
+    }
+  }
+
+  return balances;
+}
+
+// Run Monte Carlo simulation
+function runMonteCarlo(inputs: CalculatorInputs): MonteCarloResult {
+  const ages = [];
+  for (let age = inputs.currentAge; age <= LIFE_EXPECTANCY; age++) {
+    ages.push(age);
+  }
+
+  // Run all simulations
+  const allPaths: number[][] = [];
+  for (let i = 0; i < MONTE_CARLO_RUNS; i++) {
+    allPaths.push(simulatePath(inputs, inputs.currentSavings));
+  }
+
+  // Calculate percentiles at each age
+  const chartData: ChartDataPoint[] = ages.map((age, idx) => {
+    const balancesAtAge = allPaths.map(path => path[idx]).sort((a, b) => a - b);
+    
+    return {
+      age,
+      balance: balancesAtAge[Math.floor(MONTE_CARLO_RUNS * 0.5)], // Median
+      p10: balancesAtAge[Math.floor(MONTE_CARLO_RUNS * 0.1)],
+      p25: balancesAtAge[Math.floor(MONTE_CARLO_RUNS * 0.25)],
+      p50: balancesAtAge[Math.floor(MONTE_CARLO_RUNS * 0.5)],
+      p75: balancesAtAge[Math.floor(MONTE_CARLO_RUNS * 0.75)],
+      p90: balancesAtAge[Math.floor(MONTE_CARLO_RUNS * 0.9)],
+    };
+  });
+
+  // Calculate success probability (balance > 0 at life expectancy)
+  const finalBalances = allPaths.map(path => path[path.length - 1]);
+  const successCount = finalBalances.filter(b => b > 0).length;
+  const successProbability = successCount / MONTE_CARLO_RUNS;
+
+  // Find required savings for 85% success (binary search)
+  let low = inputs.currentSavings * 0.5;
+  let high = inputs.currentSavings * 3;
+  let requiredForSuccess = inputs.currentSavings;
+
+  for (let iter = 0; iter < 10; iter++) {
+    const mid = (low + high) / 2;
+    let successes = 0;
+    
+    for (let i = 0; i < 200; i++) { // Quick check with fewer runs
+      const path = simulatePath(inputs, mid);
+      if (path[path.length - 1] > 0) successes++;
+    }
+    
+    if (successes / 200 >= 0.85) {
+      requiredForSuccess = mid;
+      high = mid;
+    } else {
+      low = mid;
+    }
+  }
+
+  return { chartData, successProbability, requiredForSuccess };
+}
+
 // Main calculation function
 export function calculateRetirement(inputs: CalculatorInputs): CalculatorResults {
   const requiredSavings = calculateRequiredSavings(inputs);
   const projectedAtRetirement = calculateProjectedAtRetirement(inputs);
   const gap = projectedAtRetirement - requiredSavings;
   const isOnTrack = gap >= 0;
-  
-  const chartData = generateProjection(inputs);
+
+  let chartData: ChartDataPoint[];
+  let successProbability: number | undefined;
+
+  if (inputs.monteCarloEnabled) {
+    const mcResult = runMonteCarlo(inputs);
+    chartData = mcResult.chartData;
+    successProbability = mcResult.successProbability;
+  } else {
+    chartData = generateProjection(inputs);
+  }
+
   const checkpoints = generateCheckpoints(inputs, chartData);
-  
+
   return {
     requiredSavings,
     projectedAtRetirement,
     gap,
     isOnTrack,
     chartData,
-    checkpoints
+    checkpoints,
+    successProbability
   };
 }
