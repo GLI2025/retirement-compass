@@ -1,9 +1,8 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Calculator, Sparkles, Wallet, Activity } from 'lucide-react';
 import { 
   CalculatorInputs, 
   DEFAULT_INPUTS,
-  OtherIncome
 } from '@/types/calculator';
 import { calculateRetirement, generateGuidance } from '@/utils/calculations';
 import { StepInput } from './calculator/StepInput';
@@ -16,9 +15,11 @@ import { EducationalBox } from './calculator/EducationalBox';
 import { ResultsSummary } from './calculator/ResultsSummary';
 import { ResetButtons } from './calculator/ResetButtons';
 import { OtherIncomeSection } from './calculator/OtherIncomeSection';
+import { ExportPDFButton } from './calculator/ExportPDFButton';
 
 export function RetirementCalculator() {
   const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_INPUTS);
+  const chartRef = useRef<HTMLDivElement>(null);
 
   const updateInput = <K extends keyof CalculatorInputs>(
     key: K,
@@ -156,8 +157,13 @@ export function RetirementCalculator() {
           />
         </section>
 
-        {/* Results Summary */}
-        <ResultsSummary results={results} />
+        {/* Results Summary with Export Button */}
+        <div className="space-y-4">
+          <ResultsSummary results={results} />
+          <div className="flex justify-center">
+            <ExportPDFButton results={results} inputs={inputs} chartRef={chartRef} />
+          </div>
+        </div>
 
         {/* Monte Carlo Toggle */}
         <section className="glass-card p-4 sm:p-6">
@@ -193,13 +199,15 @@ export function RetirementCalculator() {
         </section>
 
         {/* Chart */}
-        <PortfolioChart 
-          data={results.chartData}
-          retirementAge={inputs.retirementAge}
-          ssClaimAge={inputs.whatIfEnabled ? inputs.ssClaimAge : undefined}
-          monteCarloEnabled={inputs.monteCarloEnabled}
-          successProbability={results.successProbability}
-        />
+        <div ref={chartRef}>
+          <PortfolioChart 
+            data={results.chartData}
+            retirementAge={inputs.retirementAge}
+            ssClaimAge={inputs.whatIfEnabled ? inputs.ssClaimAge : undefined}
+            monteCarloEnabled={inputs.monteCarloEnabled}
+            successProbability={results.successProbability}
+          />
+        </div>
 
         {/* Optional Toggles */}
         <section id="inflation" className="space-y-4">
