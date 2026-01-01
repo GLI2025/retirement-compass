@@ -1,10 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { CalculatorResults, CalculatorInputs } from '@/types/calculator';
+import type { CalculatorResults, CalculatorInputs } from '@/types/calculator';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import html2canvas from 'html2canvas';
 
 interface ExportPDFButtonProps {
   results: CalculatorResults;
@@ -23,6 +22,7 @@ export function ExportPDFButton({ results, inputs, chartRef }: ExportPDFButtonPr
       // Capture chart as image if available
       let chartImage: string | undefined;
       if (chartRef?.current) {
+        const html2canvas = (await import('html2canvas')).default;
         const canvas = await html2canvas(chartRef.current, {
           backgroundColor: '#1a1a2e',
           scale: 2,

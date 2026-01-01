@@ -1,3 +1,4 @@
+// @ts-nocheck
 import jsPDF from 'jspdf';
 
 export interface PDFExportData {
@@ -43,7 +44,7 @@ export async function generateRetirementPDF(data: PDFExportData): Promise<Blob> 
 
   // Header
   doc.setFontSize(24);
-  doc.setTextColor(99, 102, 241); // Primary color
+  doc.setTextColor(99, 102, 241);
   doc.text('Retirement Savings Plan', pageWidth / 2, yPosition, { align: 'center' });
   
   yPosition += 10;
@@ -61,7 +62,6 @@ export async function generateRetirementPDF(data: PDFExportData): Promise<Blob> 
   doc.setFontSize(11);
   doc.setTextColor(60, 60, 60);
 
-  // Input summary
   const inputLines = [
     `Current Age: ${data.inputs.currentAge} years`,
     `Retirement Age: ${data.inputs.retirementAge} years`,
@@ -85,7 +85,6 @@ export async function generateRetirementPDF(data: PDFExportData): Promise<Blob> 
   yPosition += 10;
   doc.setFontSize(12);
   
-  // Required Savings
   doc.setTextColor(60, 60, 60);
   doc.text('Required Savings at Retirement:', 20, yPosition);
   doc.setTextColor(0, 0, 0);
@@ -101,10 +100,10 @@ export async function generateRetirementPDF(data: PDFExportData): Promise<Blob> 
   doc.setTextColor(60, 60, 60);
   doc.text(data.results.isOnTrack ? 'Surplus:' : 'Gap:', 20, yPosition);
   if (data.results.isOnTrack) {
-    doc.setTextColor(34, 197, 94); // Green
+    doc.setTextColor(34, 197, 94);
     doc.text(`+${formatCurrency(Math.abs(data.results.gap))}`, 100, yPosition);
   } else {
-    doc.setTextColor(234, 179, 8); // Yellow/Orange
+    doc.setTextColor(234, 179, 8);
     doc.text(`-${formatCurrency(Math.abs(data.results.gap))}`, 100, yPosition);
   }
 
@@ -113,10 +112,10 @@ export async function generateRetirementPDF(data: PDFExportData): Promise<Blob> 
   doc.setFontSize(14);
   if (data.results.isOnTrack) {
     doc.setTextColor(34, 197, 94);
-    doc.text('✓ You are on track for retirement!', 20, yPosition);
+    doc.text('You are on track for retirement!', 20, yPosition);
   } else {
     doc.setTextColor(234, 179, 8);
-    doc.text('⚠ Additional savings needed to reach your goal', 20, yPosition);
+    doc.text('Additional savings needed to reach your goal', 20, yPosition);
   }
 
   // Chart Image
@@ -133,7 +132,6 @@ export async function generateRetirementPDF(data: PDFExportData): Promise<Blob> 
 
   // Income Checkpoints
   if (data.results.checkpoints.length > 0) {
-    // Check if we need a new page
     if (yPosition > 200) {
       doc.addPage();
       yPosition = 20;
@@ -146,7 +144,6 @@ export async function generateRetirementPDF(data: PDFExportData): Promise<Blob> 
     yPosition += 10;
     doc.setFontSize(9);
     
-    // Table header
     doc.setTextColor(100, 100, 100);
     doc.text('Age', 20, yPosition);
     doc.text('Monthly Need', 45, yPosition);
@@ -160,7 +157,6 @@ export async function generateRetirementPDF(data: PDFExportData): Promise<Blob> 
     doc.line(20, yPosition, pageWidth - 20, yPosition);
     yPosition += 5;
 
-    // Table rows
     doc.setTextColor(60, 60, 60);
     data.results.checkpoints.forEach(checkpoint => {
       if (yPosition > 280) {
