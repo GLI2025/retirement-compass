@@ -76,7 +76,7 @@ export function RetirementCalculator() {
         {/* Educational Box */}
         <EducationalBox />
 
-        {/* Core Inputs */}
+        {/* Your Information */}
         <section id="currentAge" className="glass-card p-4 sm:p-6 space-y-6">
           <div className="flex items-center gap-2 mb-2">
             <Calculator className="w-5 h-5 text-primary" />
@@ -149,67 +149,24 @@ export function RetirementCalculator() {
           </div>
         </section>
 
-        {/* Investment Strategy */}
-        <section id="strategy" className="glass-card p-4 sm:p-6">
-          <StrategySelect
-            value={inputs.investmentStrategy}
-            onChange={(v) => updateInput('investmentStrategy', v)}
+        {/* Other Income Sources */}
+        <section id="otherIncome" className="glass-card p-4 sm:p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Wallet className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold">Other Income Sources</h2>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            Add any additional income you expect during retirement — pensions, rental properties, 
+            part-time work, annuities, etc.
+          </p>
+          <OtherIncomeSection
+            incomes={inputs.otherIncome}
+            onChange={(incomes) => updateInput('otherIncome', incomes)}
+            currentAge={inputs.currentAge}
           />
         </section>
 
-        {/* Results Summary with Export Button */}
-        <div className="space-y-4">
-          <ResultsSummary results={results} />
-          <div className="flex justify-center">
-            <ExportPDFButton results={results} inputs={inputs} chartRef={chartRef} />
-          </div>
-        </div>
-
-        {/* Monte Carlo Toggle */}
-        <section className="glass-card p-4 sm:p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Activity className="w-5 h-5 text-primary" />
-              <div>
-                <h3 className="font-semibold">Monte Carlo Simulation</h3>
-                <p className="text-sm text-muted-foreground">
-                  Model market volatility with probability bands
-                </p>
-              </div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={inputs.monteCarloEnabled}
-                onChange={(e) => updateInput('monteCarloEnabled', e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full" />
-            </label>
-          </div>
-          
-          {inputs.monteCarloEnabled && (
-            <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
-              <p className="text-xs text-muted-foreground">
-                Running 1,000 simulations with randomized market returns based on your investment strategy's 
-                stock/bond allocation. The chart shows the range of possible outcomes at each age.
-              </p>
-            </div>
-          )}
-        </section>
-
-        {/* Chart */}
-        <div ref={chartRef}>
-          <PortfolioChart 
-            data={results.chartData}
-            retirementAge={inputs.retirementAge}
-            ssClaimAge={inputs.whatIfEnabled ? inputs.ssClaimAge : undefined}
-            monteCarloEnabled={inputs.monteCarloEnabled}
-            successProbability={results.successProbability}
-          />
-        </div>
-
-        {/* Optional Toggles */}
+        {/* Advanced Options */}
         <section id="inflation" className="space-y-4">
           <h2 className="text-lg font-semibold">Advanced Options</h2>
           
@@ -274,7 +231,7 @@ export function RetirementCalculator() {
           </ToggleOption>
         </section>
 
-        {/* What-If Section */}
+        {/* What-If Scenarios */}
         <section id="whatif">
           <ToggleOption
             label="What-If Scenarios"
@@ -333,27 +290,70 @@ export function RetirementCalculator() {
           </ToggleOption>
         </section>
 
-        {/* Other Income Sources */}
-        <section id="otherIncome" className="glass-card p-4 sm:p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Wallet className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-semibold">Other Income Sources</h2>
-          </div>
-          <p className="text-sm text-muted-foreground mb-4">
-            Add any additional income you expect during retirement — pensions, rental properties, 
-            part-time work, annuities, etc.
-          </p>
-          <OtherIncomeSection
-            incomes={inputs.otherIncome}
-            onChange={(incomes) => updateInput('otherIncome', incomes)}
-            currentAge={inputs.currentAge}
+        {/* Investment Strategy */}
+        <section id="strategy" className="glass-card p-4 sm:p-6">
+          <StrategySelect
+            value={inputs.investmentStrategy}
+            onChange={(v) => updateInput('investmentStrategy', v)}
           />
         </section>
+
+        {/* Portfolio Chart */}
+        <div ref={chartRef}>
+          <PortfolioChart 
+            data={results.chartData}
+            retirementAge={inputs.retirementAge}
+            ssClaimAge={inputs.whatIfEnabled ? inputs.ssClaimAge : undefined}
+            monteCarloEnabled={inputs.monteCarloEnabled}
+            successProbability={results.successProbability}
+          />
+        </div>
+
+        {/* Monte Carlo Toggle */}
+        <section className="glass-card p-4 sm:p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Activity className="w-5 h-5 text-primary" />
+              <div>
+                <h3 className="font-semibold">Monte Carlo Simulation</h3>
+                <p className="text-sm text-muted-foreground">
+                  Model market volatility with probability bands
+                </p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={inputs.monteCarloEnabled}
+                onChange={(e) => updateInput('monteCarloEnabled', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full" />
+            </label>
+          </div>
+          
+          {inputs.monteCarloEnabled && (
+            <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
+              <p className="text-xs text-muted-foreground">
+                Running 1,000 simulations with randomized market returns based on your investment strategy's 
+                stock/bond allocation. The chart shows the range of possible outcomes at each age.
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* Results Summary with Export Button */}
+        <div className="space-y-4">
+          <ResultsSummary results={results} />
+          <div className="flex justify-center">
+            <ExportPDFButton results={results} inputs={inputs} chartRef={chartRef} />
+          </div>
+        </div>
 
         {/* Income Checkpoints */}
         <IncomeCheckpoints checkpoints={results.checkpoints} />
 
-        {/* Guidance */}
+        {/* Guidance Panel */}
         <GuidancePanel items={guidance} isOnTrack={results.isOnTrack} />
 
         {/* Reset Buttons */}
@@ -365,7 +365,7 @@ export function RetirementCalculator() {
           />
         </div>
 
-        {/* Disclosure */}
+        {/* Footer/Disclosure */}
         <footer className="text-center text-xs text-muted-foreground max-w-2xl mx-auto">
           <p className="mb-2">
             <strong>Educational purposes only.</strong> This calculator provides estimates 
