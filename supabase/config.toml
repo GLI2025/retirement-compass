@@ -1,1 +1,7 @@
 project_id = "kdiaurqxhmjgjcgnqtnj"
+
+[functions.create-pdf-checkout]
+verify_jwt = false
+
+[functions.verify-pdf-payment]
+verify_jwt = false
