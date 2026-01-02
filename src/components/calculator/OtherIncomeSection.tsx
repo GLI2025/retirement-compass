@@ -176,7 +176,7 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
             Or create a custom income source:
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground">
                 Income Name
@@ -207,6 +207,22 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
               max={100}
               step={1}
             />
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">
+                Inflation Adjustment
+              </label>
+              <div className="flex items-center gap-3 h-12">
+                <Switch
+                  checked={newIncome.hasCola || false}
+                  onCheckedChange={(v) => setNewIncome(prev => ({ ...prev, hasCola: v }))}
+                  className="data-[state=checked]:bg-primary"
+                />
+                <span className="text-sm">
+                  {newIncome.hasCola ? 'COLA applied' : 'Fixed amount'}
+                </span>
+              </div>
+            </div>
 
             <div className="flex items-end">
               <Button
