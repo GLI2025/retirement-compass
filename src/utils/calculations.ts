@@ -18,7 +18,7 @@ function futureValue(
   years: number,
   annualIncreaseRate: number = 0
 ): number {
-  const monthlyRate = annualRate / 12;
+  const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
   let balance = presentValue;
   let contribution = monthlyContribution;
   
@@ -51,6 +51,7 @@ function presentValueOfRetirementNeeds(
 }
 
 // Calculate SS income at a given age
+// Returns nominal dollars if COLA is enabled (grows with inflation from currentAge)
 function calculateSSIncome(
   inputs: CalculatorInputs,
   age: number
@@ -61,10 +62,11 @@ function calculateSSIncome(
   
   let ssBenefit = inputs.ssMonthlyBenefit;
   
-  // Apply COLA if enabled
+  // Apply COLA: SS grows with inflation every year after currentAge once claiming starts
   if (inputs.applyInflationToSS && inputs.inflationEnabled) {
-    const yearsFromNow = inputs.ssClaimAge - inputs.currentAge;
-    ssBenefit = ssBenefit * Math.pow(1 + inputs.inflationRate / 100, yearsFromNow);
+    // Grow from currentAge to current age (continuous COLA, not just to claim age)
+    const yearsOfCOLA = age - inputs.currentAge;
+    ssBenefit = ssBenefit * Math.pow(1 + inputs.inflationRate / 100, yearsOfCOLA);
   }
   
   return ssBenefit;
@@ -132,7 +134,7 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
     if (age < inputs.retirementAge) {
       // Accumulation phase
       const annualReturn = strategy.expectedReturn;
-      const monthlyReturn = annualReturn / 12;
+      const monthlyReturn = Math.pow(1 + annualReturn, 1 / 12) - 1;
       
       for (let month = 0; month < 12; month++) {
         balance = balance * (1 + monthlyReturn) + monthlyContrib;
@@ -145,7 +147,7 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
     } else {
       // Retirement phase - withdrawals
       const annualReturn = retirementStrategy.expectedReturn;
-      const monthlyReturn = annualReturn / 12;
+      const monthlyReturn = Math.pow(1 + annualReturn, 1 / 12) - 1;
       
       const monthlyExpenses = calculateMonthlyExpenses(inputs, age);
       const ssIncome = calculateSSIncome(inputs, age);
@@ -163,55 +165,67 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
 }
 
 // Calculate required savings at retirement
+// Uses nominal cashflows (inflated expenses, SS with COLA) discounted at nominal rate
 function calculateRequiredSavings(inputs: CalculatorInputs): number {
   const retirementYears = LIFE_EXPECTANCY - inputs.retirementAge;
   const retirementStrategy = inputs.retirementStrategyEnabled 
     ? STRATEGIES[inputs.retirementStrategy] 
     : STRATEGIES[inputs.investmentStrategy];
   
-  // Calculate average annual expenses in retirement (inflation-adjusted)
-  let totalExpenses = 0;
+  // Nominal discount rate (no inflation subtraction - cashflows are already nominal)
+  const nominalRate = retirementStrategy.expectedReturn;
+  
+  // Sum PV of each year's net expenses in nominal terms
+  let totalPV = 0;
   for (let year = 0; year < retirementYears; year++) {
     const age = inputs.retirementAge + year;
+    // These are already nominal (inflated) values
     const monthlyExpenses = calculateMonthlyExpenses(inputs, age);
     const ssIncome = calculateSSIncome(inputs, age);
     const otherIncome = calculateOtherIncome(inputs, age);
-    const netExpenses = Math.max(0, monthlyExpenses - ssIncome - otherIncome) * 12;
+    const annualNetExpenses = Math.max(0, monthlyExpenses - ssIncome - otherIncome) * 12;
     
-    // Discount back to retirement age
-    const discountRate = retirementStrategy.expectedReturn - (inputs.inflationEnabled ? inputs.inflationRate / 100 : 0);
-    totalExpenses += netExpenses / Math.pow(1 + Math.max(0.01, discountRate), year);
+    // Discount nominal cashflow at nominal rate back to retirement age
+    totalPV += annualNetExpenses / Math.pow(1 + nominalRate, year);
   }
   
-  return totalExpenses;
+  return totalPV;
 }
 
 // Calculate projected savings at retirement
+// One-time deposits are added at their received age and grown only once via simulation
 function calculateProjectedAtRetirement(inputs: CalculatorInputs): number {
-  const yearsToRetirement = inputs.retirementAge - inputs.currentAge;
   const strategy = STRATEGIES[inputs.investmentStrategy];
+  const monthlyRate = Math.pow(1 + strategy.expectedReturn, 1 / 12) - 1;
   
-  // Start with current savings
   let balance = inputs.currentSavings;
   let monthlyContrib = inputs.monthlyContribution + inputs.employerContribution;
   
-  // Add one-time deposits and their growth
-  for (const deposit of inputs.oneTimeDeposits) {
-    if (deposit.ageReceived <= inputs.retirementAge) {
-      const yearsToGrow = inputs.retirementAge - deposit.ageReceived;
-      const grownAmount = deposit.amount * Math.pow(1 + strategy.expectedReturn, yearsToGrow);
-      balance += grownAmount;
+  for (let age = inputs.currentAge; age < inputs.retirementAge; age++) {
+    // Add one-time deposits received at this age (before growth for the year)
+    const deposits = inputs.oneTimeDeposits
+      .filter(d => d.ageReceived === age)
+      .reduce((sum, d) => sum + d.amount, 0);
+    balance += deposits;
+    
+    // Grow for 12 months
+    for (let month = 0; month < 12; month++) {
+      balance = balance * (1 + monthlyRate) + monthlyContrib;
+    }
+    
+    // Annual contribution increase
+    if (inputs.annualIncreaseEnabled) {
+      monthlyContrib = monthlyContrib * (1 + inputs.annualIncreaseRate / 100);
     }
   }
   
-  // Calculate future value with contributions
-  return futureValue(
-    balance,
-    monthlyContrib,
-    strategy.expectedReturn,
-    yearsToRetirement,
-    inputs.annualIncreaseEnabled ? inputs.annualIncreaseRate / 100 : 0
-  );
+  // Add deposits received exactly at retirement age (no growth)
+  const retirementDeposits = inputs.oneTimeDeposits
+    .filter(d => d.ageReceived === inputs.retirementAge)
+    .reduce((sum, d) => sum + d.amount, 0);
+  balance += retirementDeposits;
+  
+  return balance;
 }
 
 // Generate income checkpoints
@@ -379,7 +393,7 @@ function simulatePath(
     // Simulate monthly returns with volatility
     const annualVol = Math.sqrt(stockAlloc ** 2 * stockVol ** 2 + bondAlloc ** 2 * bondVol ** 2);
     const monthlyVol = annualVol / Math.sqrt(12);
-    const expectedMonthlyReturn = currentStrategy.expectedReturn / 12;
+    const expectedMonthlyReturn = Math.pow(1 + currentStrategy.expectedReturn, 1 / 12) - 1;
 
     if (age < inputs.retirementAge) {
       // Accumulation phase
