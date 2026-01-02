@@ -43,11 +43,11 @@ export function StepInput({
   };
 
   const formatValue = () => {
-    if (prefix === '$') {
-      return value.toLocaleString();
-    }
-    return value.toString();
-  };
+  if (prefix === '$') return value.toLocaleString();
+  if (suffix === '%') return Number.isFinite(value) ? value.toFixed(2) : '0.00';
+  return value.toString();
+};
+Fix percent formatting to 2 decimals
 
   return (
     <div className={cn('space-y-2', className)}>
