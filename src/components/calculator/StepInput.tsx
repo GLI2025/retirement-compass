@@ -26,28 +26,37 @@ export function StepInput({
   tooltip,
   className
 }: StepInputProps) {
-  const handleDecrease = () => {
-    const newValue = Math.max(min, value - step);
-    onChange(newValue);
-  };
-
   const handleIncrease = () => {
-    const newValue = Math.min(max, value + step);
-    onChange(newValue);
-  };
+  const next = roundForField(clamp(value + step));
+  onChange(next);
+};
+
+const handleDecrease = () => {
+  const next = roundForField(clamp(value - step));
+  onChange(next);
+};
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.replace(/[^0-9.-]/g, '');
     const numValue = parseFloat(rawValue) || 0;
-    onChange(Math.min(max, Math.max(min, numValue)));
+    onChange(roundForField(clamp(numValue)));
   };
+  const clamp = (n: number) => Math.min(max, Math.max(min, n));
+
+const roundForField = (n: number) => {
+  // Only round percentage-style fields
+  if (suffix === '%') return Number(n.toFixed(2));
+  return n;
+};
+
 
   const formatValue = () => {
   if (prefix === '$') return value.toLocaleString();
   if (suffix === '%') return Number.isFinite(value) ? value.toFixed(2) : '0.00';
   return value.toString();
 };
-Fix percent formatting to 2 decimals
+//Fix percent formatting to 2 decimals
 
   return (
     <div className={cn('space-y-2', className)}>
