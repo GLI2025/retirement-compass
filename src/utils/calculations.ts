@@ -103,10 +103,21 @@ function calculateMonthlyExpenses(
     expenses = expenses * Math.pow(1 + inputs.inflationRate / 100, yearsFromNow);
   }
   
-  // Subtract mortgage if paid off
-  if (inputs.whatIfEnabled && inputs.housePayoffEnabled && age >= inputs.housePayoffAge) {
-    expenses -= inputs.currentMortgagePayment;
+ // Subtract mortgage if paid off
+if (inputs.whatIfEnabled && inputs.housePayoffEnabled && age >= inputs.housePayoffAge) {
+  let mortgageToSubtract = inputs.currentMortgagePayment;
+
+  // Keep units consistent: if expenses were inflated to "age" dollars,
+  // subtract the mortgage in the same "age" dollars too.
+  if (inputs.inflationEnabled) {
+    const yearsFromNow = age - inputs.currentAge;
+    mortgageToSubtract =
+      mortgageToSubtract * Math.pow(1 + inputs.inflationRate / 100, yearsFromNow);
   }
+
+  expenses -= mortgageToSubtract;
+}
+
   
   return Math.max(0, expenses);
 }
