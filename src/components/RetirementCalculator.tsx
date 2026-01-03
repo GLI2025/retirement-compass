@@ -38,10 +38,17 @@ export function RetirementCalculator() {
   };
 
   const handleResetWhatIf = () => {
-    updateInput('whatIfEnabled', false);
+    updateInput('ssEnabled', false);
     updateInput('ssClaimAge', DEFAULT_INPUTS.ssClaimAge);
     updateInput('ssMonthlyBenefit', DEFAULT_INPUTS.ssMonthlyBenefit);
+    updateInput('applyInflationToSS', DEFAULT_INPUTS.applyInflationToSS);
     updateInput('housePayoffEnabled', false);
+    updateInput('housePayoffAge', DEFAULT_INPUTS.housePayoffAge);
+    updateInput('currentMortgagePayment', DEFAULT_INPUTS.currentMortgagePayment);
+    updateInput('annualIncreaseEnabled', false);
+    updateInput('annualIncreaseRate', DEFAULT_INPUTS.annualIncreaseRate);
+    updateInput('retirementStrategyEnabled', false);
+    updateInput('retirementStrategy', DEFAULT_INPUTS.retirementStrategy);
     updateInput('otherIncome', []);
   };
 
@@ -177,70 +184,34 @@ export function RetirementCalculator() {
             enabled={inputs.inflationEnabled}
             onToggle={(v) => updateInput('inflationEnabled', v)}
           >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <StepInput
-                label="Inflation Rate"
-                value={inputs.inflationRate}
-                onChange={(v) => updateInput('inflationRate', v)}
-                min={0}
-                max={10}
-                step={0.1}
-                suffix="%"
-              />
-              <div className="flex items-center">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={inputs.applyInflationToSS}
-                    onChange={(e) => updateInput('applyInflationToSS', e.target.checked)}
-                    className="w-4 h-4 rounded border-border"
-                  />
-                  <span className="text-sm">Apply COLA to Social Security</span>
-                </label>
-              </div>
-            </div>
-          </ToggleOption>
-          
-          <ToggleOption
-            label="Annual Contribution Increases"
-            description="Increase your contributions each year as your income grows"
-            enabled={inputs.annualIncreaseEnabled}
-            onToggle={(v) => updateInput('annualIncreaseEnabled', v)}
-          >
             <StepInput
-              label="Annual Increase"
-              value={inputs.annualIncreaseRate}
-              onChange={(v) => updateInput('annualIncreaseRate', v)}
+              label="Inflation Rate"
+              value={inputs.inflationRate}
+              onChange={(v) => updateInput('inflationRate', v)}
               min={0}
               max={10}
-              step={0.5}
+              step={0.1}
               suffix="%"
-            />
-          </ToggleOption>
-          
-          <ToggleOption
-            label="Different Retirement Strategy"
-            description="Use a more conservative approach after retirement"
-            enabled={inputs.retirementStrategyEnabled}
-            onToggle={(v) => updateInput('retirementStrategyEnabled', v)}
-          >
-            <StrategySelect
-              label="Retirement Investment Strategy"
-              value={inputs.retirementStrategy}
-              onChange={(v) => updateInput('retirementStrategy', v)}
             />
           </ToggleOption>
         </section>
 
         {/* What-If Scenarios */}
-        <section id="whatif">
+        <section id="whatif" className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">What-If Scenarios</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              What-If scenarios let you test assumptions without changing your baseline plan.
+            </p>
+          </div>
+
           <ToggleOption
-            label="What-If Scenarios"
-            description="Model Social Security, mortgage payoff, and more"
-            enabled={inputs.whatIfEnabled}
-            onToggle={(v) => updateInput('whatIfEnabled', v)}
+            label="Include Social Security"
+            description="Add expected Social Security income to your retirement plan"
+            enabled={inputs.ssEnabled}
+            onToggle={(v) => updateInput('ssEnabled', v)}
           >
-            <div className="space-y-6">
+            <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <StepInput
                   label="Social Security Claim Age"
@@ -261,33 +232,72 @@ export function RetirementCalculator() {
                   tooltip="Your estimated monthly SS benefit at claim age"
                 />
               </div>
-              
-              <ToggleOption
-                label="Mortgage Payoff"
-                description="Account for reduced expenses after paying off your home"
-                enabled={inputs.housePayoffEnabled}
-                onToggle={(v) => updateInput('housePayoffEnabled', v)}
-              >
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <StepInput
-                    label="Payoff Age"
-                    value={inputs.housePayoffAge}
-                    onChange={(v) => updateInput('housePayoffAge', v)}
-                    min={inputs.currentAge}
-                    max={90}
-                    step={1}
-                  />
-                  <StepInput
-                    label="Current Mortgage Payment"
-                    value={inputs.currentMortgagePayment}
-                    onChange={(v) => updateInput('currentMortgagePayment', v)}
-                    min={0}
-                    step={100}
-                    prefix="$"
-                  />
-                </div>
-              </ToggleOption>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={inputs.applyInflationToSS}
+                  onChange={(e) => updateInput('applyInflationToSS', e.target.checked)}
+                  className="w-4 h-4 rounded border-border"
+                />
+                <span className="text-sm">Apply COLA to Social Security</span>
+              </label>
             </div>
+          </ToggleOption>
+
+          <ToggleOption
+            label="Mortgage Payoff"
+            description="Account for reduced expenses after paying off your home"
+            enabled={inputs.housePayoffEnabled}
+            onToggle={(v) => updateInput('housePayoffEnabled', v)}
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <StepInput
+                label="Payoff Age"
+                value={inputs.housePayoffAge}
+                onChange={(v) => updateInput('housePayoffAge', v)}
+                min={inputs.currentAge}
+                max={90}
+                step={1}
+              />
+              <StepInput
+                label="Current Mortgage Payment"
+                value={inputs.currentMortgagePayment}
+                onChange={(v) => updateInput('currentMortgagePayment', v)}
+                min={0}
+                step={100}
+                prefix="$"
+              />
+            </div>
+          </ToggleOption>
+
+          <ToggleOption
+            label="Annual Contribution Increases"
+            description="Increase your contributions each year as your income grows"
+            enabled={inputs.annualIncreaseEnabled}
+            onToggle={(v) => updateInput('annualIncreaseEnabled', v)}
+          >
+            <StepInput
+              label="Annual Increase"
+              value={inputs.annualIncreaseRate}
+              onChange={(v) => updateInput('annualIncreaseRate', v)}
+              min={0}
+              max={10}
+              step={0.5}
+              suffix="%"
+            />
+          </ToggleOption>
+
+          <ToggleOption
+            label="Different Investment Strategy in Retirement"
+            description="Use a more conservative approach after retirement"
+            enabled={inputs.retirementStrategyEnabled}
+            onToggle={(v) => updateInput('retirementStrategyEnabled', v)}
+          >
+            <StrategySelect
+              label="Retirement Investment Strategy"
+              value={inputs.retirementStrategy}
+              onChange={(v) => updateInput('retirementStrategy', v)}
+            />
           </ToggleOption>
         </section>
 
@@ -304,7 +314,7 @@ export function RetirementCalculator() {
           <PortfolioChart 
             data={results.chartData}
             retirementAge={inputs.retirementAge}
-            ssClaimAge={inputs.whatIfEnabled ? inputs.ssClaimAge : undefined}
+            ssClaimAge={inputs.ssEnabled ? inputs.ssClaimAge : undefined}
             monteCarloEnabled={inputs.monteCarloEnabled}
             successProbability={results.successProbability}
           />

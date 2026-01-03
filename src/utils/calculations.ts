@@ -56,7 +56,7 @@ function calculateSSIncome(
   inputs: CalculatorInputs,
   age: number
 ): number {
-  if (!inputs.whatIfEnabled || age < inputs.ssClaimAge) {
+  if (!inputs.ssEnabled || age < inputs.ssClaimAge) {
     return 0;
   }
   
@@ -104,7 +104,7 @@ function calculateMonthlyExpenses(
   }
   
  // Subtract mortgage if paid off
-if (inputs.whatIfEnabled && inputs.housePayoffEnabled && age >= inputs.housePayoffAge) {
+if (inputs.housePayoffEnabled && age >= inputs.housePayoffAge) {
   let mortgageToSubtract = inputs.currentMortgagePayment;
 
   // Keep units consistent: if expenses were inflated to "age" dollars,
