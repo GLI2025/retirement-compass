@@ -112,7 +112,8 @@ export function RetirementCalculator() {
               max={50000}
               step={100}
               prefix="$"
-              tooltip="Your expected monthly spending in retirement"
+              tooltip="Monthly spending in today’s dollars. If this includes your mortgage payment, the Mortgage Payoff toggle will remove it at the payoff age."
+
             />
           </div>
 
