@@ -8,47 +8,6 @@ import {
 } from '@/types/calculator';
 
 const LIFE_EXPECTANCY = 95;
-const SAFE_WITHDRAWAL_RATE = 0.04;
-
-// Calculate future value with compound growth
-function futureValue(
-  presentValue: number,
-  monthlyContribution: number,
-  annualRate: number,
-  years: number,
-  annualIncreaseRate: number = 0
-): number {
-  const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
-  let balance = presentValue;
-  let contribution = monthlyContribution;
-  
-  for (let year = 0; year < years; year++) {
-    for (let month = 0; month < 12; month++) {
-      balance = balance * (1 + monthlyRate) + contribution;
-    }
-    contribution = contribution * (1 + annualIncreaseRate);
-  }
-  
-  return balance;
-}
-
-// Calculate present value of retirement needs
-function presentValueOfRetirementNeeds(
-  annualExpenses: number,
-  retirementYears: number,
-  withdrawalRate: number,
-  inflationRate: number
-): number {
-  // Simplified calculation using inflation-adjusted withdrawal rate
-  const realRate = withdrawalRate - inflationRate;
-  if (realRate <= 0) {
-    return annualExpenses * retirementYears;
-  }
-  
-  // PV of annuity formula
-  const pv = annualExpenses * ((1 - Math.pow(1 + realRate, -retirementYears)) / realRate);
-  return pv;
-}
 
 // Calculate SS income at a given age
 // Returns nominal dollars if COLA is enabled (grows with inflation from currentAge)
@@ -90,37 +49,34 @@ function calculateOtherIncome(
   }, 0);
 }
 
-// Calculate monthly expenses at a given age
 function calculateMonthlyExpenses(
   inputs: CalculatorInputs,
   age: number
 ): number {
   let expenses = inputs.monthlyExpenses;
-  
+
   // Apply inflation
   if (inputs.inflationEnabled) {
     const yearsFromNow = age - inputs.currentAge;
     expenses = expenses * Math.pow(1 + inputs.inflationRate / 100, yearsFromNow);
   }
-  
- // Subtract mortgage if paid off
-if (inputs.housePayoffEnabled && age >= inputs.housePayoffAge) {
-  let mortgageToSubtract = inputs.currentMortgagePayment;
 
-  // Keep units consistent: if expenses were inflated to "age" dollars,
-  // subtract the mortgage in the same "age" dollars too.
-  if (inputs.inflationEnabled) {
-    const yearsFromNow = age - inputs.currentAge;
-    mortgageToSubtract =
-      mortgageToSubtract * Math.pow(1 + inputs.inflationRate / 100, yearsFromNow);
+  // Subtract mortgage if paid off (keep units consistent with inflated expenses)
+  if (inputs.housePayoffEnabled && age >= inputs.housePayoffAge) {
+    let mortgageToSubtract = inputs.currentMortgagePayment;
+
+    if (inputs.inflationEnabled) {
+      const yearsFromNow = age - inputs.currentAge;
+      mortgageToSubtract =
+        mortgageToSubtract * Math.pow(1 + inputs.inflationRate / 100, yearsFromNow);
+    }
+
+    expenses -= mortgageToSubtract;
   }
 
-  expenses -= mortgageToSubtract;
-}
-
-  
   return Math.max(0, expenses);
 }
+
 
 // Generate portfolio projection data
 function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
@@ -175,8 +131,7 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
   return data;
 }
 
-// Calculate required savings at retirement
-// Uses nominal cashflows (inflated expenses, SS with COLA) discounted at nominal rate
+
 function calculateRequiredSavings(inputs: CalculatorInputs): number {
   const retirementYears = LIFE_EXPECTANCY - inputs.retirementAge;
   const retirementStrategy = inputs.retirementStrategyEnabled 
@@ -304,9 +259,14 @@ export function generateGuidance(
     
     // Additional monthly savings needed
     const strategy = STRATEGIES[inputs.investmentStrategy];
-    const monthlyRate = strategy.expectedReturn / 12;
-    const months = yearsToRetirement * 12;
-    const additionalMonthly = (gap * monthlyRate) / (Math.pow(1 + monthlyRate, months) - 1);
+const monthlyRate = Math.pow(1 + strategy.expectedReturn, 1 / 12) - 1;
+const months = yearsToRetirement * 12;
+
+const additionalMonthly =
+  monthlyRate <= 0
+    ? gap / months
+    : (gap * monthlyRate) / (Math.pow(1 + monthlyRate, months) - 1);
+
     
     items.push({
       type: 'savings',
@@ -402,16 +362,20 @@ function simulatePath(
     const bondAlloc = currentStrategy.bondAllocation;
 
     // Simulate monthly returns with volatility
-    const annualVol = Math.sqrt(stockAlloc ** 2 * stockVol ** 2 + bondAlloc ** 2 * bondVol ** 2);
-    const monthlyVol = annualVol / Math.sqrt(12);
-    const expectedMonthlyReturn = Math.pow(1 + currentStrategy.expectedReturn, 1 / 12) - 1;
+const annualVol = Math.sqrt(
+  stockAlloc ** 2 * stockVol ** 2 + bondAlloc ** 2 * bondVol ** 2
+);
+const monthlyVol = annualVol / Math.sqrt(12);
+const expectedMonthlyReturn = Math.pow(1 + currentStrategy.expectedReturn, 1 / 12) - 1;
+
 
     if (age < inputs.retirementAge) {
       // Accumulation phase
       for (let month = 0; month < 12; month++) {
-        const monthlyReturn = randomNormal(expectedMonthlyReturn, monthlyVol);
-        balance = balance * (1 + monthlyReturn) + monthlyContrib;
-      }
+  const monthlyReturn = randomNormal(expectedMonthlyReturn, monthlyVol);
+  balance = balance * (1 + monthlyReturn) + monthlyContrib;
+}
+
       if (inputs.annualIncreaseEnabled) {
         monthlyContrib *= 1 + inputs.annualIncreaseRate / 100;
       }
@@ -423,10 +387,11 @@ function simulatePath(
       const monthlyWithdrawal = Math.max(0, monthlyExpenses - ssIncome - otherIncome);
 
       for (let month = 0; month < 12; month++) {
-        const monthlyReturn = randomNormal(expectedMonthlyReturn, monthlyVol);
-        balance = balance * (1 + monthlyReturn) - monthlyWithdrawal;
-        if (balance < 0) balance = 0;
-      }
+  const monthlyReturn = randomNormal(expectedMonthlyReturn, monthlyVol);
+  balance = balance * (1 + monthlyReturn) - monthlyWithdrawal;
+  if (balance < 0) balance = 0;
+}
+
     }
   }
 
@@ -521,3 +486,5 @@ export function calculateRetirement(inputs: CalculatorInputs): CalculatorResults
     successProbability
   };
 }
+
+
