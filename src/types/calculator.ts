@@ -96,7 +96,7 @@ export interface CalculatorInputs {
   retirementStrategy: InvestmentStrategy;
   
   // What-if scenarios
-  whatIfEnabled: boolean;
+  ssEnabled: boolean;
   ssClaimAge: number;
   ssMonthlyBenefit: number;
   housePayoffEnabled: boolean;
@@ -175,7 +175,7 @@ export const DEFAULT_INPUTS: CalculatorInputs = {
   retirementStrategyEnabled: false,
   retirementStrategy: 'moderate',
   
-  whatIfEnabled: false,
+  ssEnabled: false,
   ssClaimAge: 67,
   ssMonthlyBenefit: 2000,
   housePayoffEnabled: false,
