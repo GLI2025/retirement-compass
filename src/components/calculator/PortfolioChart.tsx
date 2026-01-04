@@ -41,10 +41,12 @@ const CustomTooltip = ({ active, payload, label, monteCarloEnabled }: any) => {
         </p>
         {monteCarloEnabled && payload[0]?.payload?.p10 !== undefined && (
           <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-            <p>90th: {formatCurrency(payload[0].payload.p90)}</p>
-            <p>75th: {formatCurrency(payload[0].payload.p75)}</p>
-            <p>25th: {formatCurrency(payload[0].payload.p25)}</p>
-            <p>10th: {formatCurrency(payload[0].payload.p10)}</p>
+           <p>Strong markets (high): {formatCurrency(payload[0].payload.p90)}</p>
+      <p>Common high: {formatCurrency(payload[0].payload.p75)}</p>
+      <p>Common low: {formatCurrency(payload[0].payload.p25)}</p>
+      <p>Weak markets (low): {formatCurrency(payload[0].payload.p10)}</p>
+      <p className="mt-1 italic">Stress test, not a forecast.</p>
+
           </div>
         )}
       </div>
@@ -67,31 +69,38 @@ export function PortfolioChart({
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">Portfolio Projection</h3>
         {monteCarloEnabled && successProbability !== undefined && (
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30">
-            <span className="text-xs text-muted-foreground">Success Rate:</span>
-            <span className={`text-sm font-bold ${
-              successProbability >= 0.85 ? 'text-emerald-400' : 
-              successProbability >= 0.7 ? 'text-amber-400' : 'text-red-400'
-            }`}>
-              {Math.round(successProbability * 100)}%
-            </span>
-          </div>
-        )}
+  <div
+    className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30"
+    title="Stress test across simulated market histories. 'Held up' means your savings stayed above $0 through age 95."
+  >
+    <span className="text-xs text-muted-foreground">Plan held up:</span>
+    <span
+      className={`text-sm font-bold ${
+        successProbability >= 0.85 ? "text-emerald-400" :
+        successProbability >= 0.7 ? "text-amber-400" : "text-red-400"
+      }`}
+    >
+      {Math.round(successProbability * 100)} out of 100
+    </span>
+  </div>
+)}
+
+         
       </div>
       
       {monteCarloEnabled && (
         <div className="flex flex-wrap gap-4 mb-4 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded bg-primary/60" />
-            <span className="text-muted-foreground">50th percentile (median)</span>
+            <span className="text-muted-foreground">Typical market outcome</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded bg-primary/30" />
-            <span className="text-muted-foreground">25th-75th percentile</span>
+            <span className="text-muted-foreground">Common range of outcomes</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded bg-primary/15" />
-            <span className="text-muted-foreground">10th-90th percentile</span>
+            <span className="text-muted-foreground">Stress test range (good & bad markets)</span>
           </div>
         </div>
       )}
