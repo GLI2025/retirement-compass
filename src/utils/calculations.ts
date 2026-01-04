@@ -193,36 +193,82 @@ function calculateProjectedAtRetirement(inputs: CalculatorInputs): number {
   
   return balance;
 }
+function getCheckpointAges(inputs: CalculatorInputs): number[] {
+  const ages = new Set<number>();
+
+  // Anchors
+  ages.add(inputs.retirementAge);
+  ages.add(62);
+  ages.add(65);
+  ages.add(70);
+
+  if (inputs.ssEnabled) {
+    ages.add(inputs.ssClaimAge);
+  }
+
+  ages.add(LIFE_EXPECTANCY);
+
+  // Spacing after retirement
+  const step = inputs.retirementAge < 55 ? 5 : 10;
+  for (let age = inputs.retirementAge + step; age <= LIFE_EXPECTANCY; age += step) {
+    ages.add(age);
+  }
+
+  return Array.from(ages)
+    .filter(age => age >= inputs.currentAge && age <= LIFE_EXPECTANCY)
+    .sort((a, b) => a - b);
+}
+
+function labelForAge(inputs: CalculatorInputs, age: number): string {
+  const labels: string[] = [];
+
+  if (age === inputs.retirementAge) labels.push("At Retirement");
+  if (inputs.ssEnabled && age === inputs.ssClaimAge) labels.push("At SS Claim");
+  if (age === 62) labels.push("SS Eligible");
+  if (age === 65) labels.push("Medicare Age");
+  if (age === 70) labels.push("Age 70");
+  if (age === LIFE_EXPECTANCY) labels.push("Longevity Check");
+
+  return labels.length ? labels.join(" / ") : `At Age ${age}`;
+}
+
 
 // Generate income checkpoints
 function generateCheckpoints(
   inputs: CalculatorInputs,
   chartData: ChartDataPoint[]
 ): IncomeCheckpoint[] {
-  const checkpoints: IncomeCheckpoint[] = [];
-  const ages = [inputs.retirementAge, inputs.ssClaimAge, 70];
-  const labels = ['At Retirement', 'At SS Claim', 'At Age 70'];
-  
-  ages.forEach((age, index) => {
-    if (age >= inputs.currentAge && age <= LIFE_EXPECTANCY) {
-      const dataPoint = chartData.find(d => d.age === age);
-      const balance = dataPoint?.balance || 0;
-      
-      const monthlyNeed = calculateMonthlyExpenses(inputs, age);
-      const ssIncome = calculateSSIncome(inputs, age);
-      const otherIncome = calculateOtherIncome(inputs, age);
-      const fromPortfolio = Math.max(0, monthlyNeed - ssIncome - otherIncome);
-      
-      // Calculate withdrawal rate
-      const annualWithdrawal = fromPortfolio * 12;
-      const withdrawalRate = balance > 0 ? annualWithdrawal / balance : 1;
-      
-      let status: 'good' | 'warn' | 'bad' = 'good';
-      if (withdrawalRate > 0.06) {
-        status = 'bad';
-      } else if (withdrawalRate > 0.04) {
-        status = 'warn';
-      }
+  const ages = getCheckpointAges(inputs);
+
+  return ages.map(age => {
+    const dataPoint = chartData.find(d => d.age === age);
+    const balance = dataPoint?.balance ?? 0;
+
+    const monthlyNeed = calculateMonthlyExpenses(inputs, age);
+    const ssIncome = calculateSSIncome(inputs, age);
+    const otherIncome = calculateOtherIncome(inputs, age);
+    const fromPortfolio = Math.max(0, monthlyNeed - ssIncome - otherIncome);
+
+    const annualWithdrawal = fromPortfolio * 12;
+    const withdrawalRate = balance > 0 ? annualWithdrawal / balance : 1;
+
+    let status: "good" | "warn" | "bad" = "good";
+    if (withdrawalRate > 0.06) status = "bad";
+    else if (withdrawalRate > 0.04) status = "warn";
+
+    return {
+      age,
+      label: labelForAge(inputs, age),
+      monthlyNeed,
+      ssIncome,
+      otherIncome,
+      fromPortfolio,
+      portfolioBalance: balance,
+      status,
+    };
+  });
+}
+
       
       checkpoints.push({
         age,
