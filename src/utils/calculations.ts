@@ -267,7 +267,6 @@ function generateCheckpoints(
       status,
     };
   });
-}
 
       
       checkpoints.push({
