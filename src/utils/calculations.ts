@@ -250,7 +250,8 @@ function generateCheckpoints(
     const fromPortfolio = Math.max(0, monthlyNeed - ssIncome - otherIncome);
 
     const annualWithdrawal = fromPortfolio * 12;
-    const withdrawalRate = balance > 0 ? annualWithdrawal / balance : 1;
+    
+    const withdrawalRate = balance > 0 ? annualWithdrawal / balance : 0;
 
     let status: "good" | "warn" | "bad" = "good";
     if (withdrawalRate > 0.06) status = "bad";
@@ -264,6 +265,7 @@ function generateCheckpoints(
       otherIncome,
       fromPortfolio,
       portfolioBalance: balance,
+      withdrawalRate,
       stressLevel: status,
     };
   });
