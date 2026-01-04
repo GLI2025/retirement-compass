@@ -1,5 +1,7 @@
 import { Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type React from 'react';
+
 
 interface StepInputProps {
   label: string;
@@ -109,3 +111,5 @@ return (
     )}
   </div>
 );
+  }
+
