@@ -20,9 +20,9 @@ export function IncomeCheckpoints({ checkpoints }: IncomeCheckpointsProps) {
             key={checkpoint.age}
             className={cn(
               'rounded-xl p-4 border',
-              checkpoint.status === 'good' && 'checkpoint-good',
-              checkpoint.status === 'warn' && 'checkpoint-warn',
-              checkpoint.status === 'bad' && 'checkpoint-bad'
+              checkpoint.stressLevel === 'good' && 'checkpoint-good',
+              checkpoint.stressLevel === 'warn' && 'checkpoint-warn',
+              checkpoint.stressLevel === 'bad' && 'checkpoint-bad'
             )}
           >
             <div className="text-sm font-medium opacity-80">{checkpoint.label}</div>
