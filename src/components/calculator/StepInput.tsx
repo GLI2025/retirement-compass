@@ -12,6 +12,7 @@ interface StepInputProps {
   suffix?: string;
   tooltip?: string;
   className?: string;
+  helperText?: string;
 }
 
 export function StepInput({
@@ -24,6 +25,7 @@ export function StepInput({
   prefix,
   suffix,
   tooltip,
+  helperText,
   className
 }: StepInputProps) {
   const handleIncrease = () => {
@@ -88,6 +90,12 @@ const roundForField = (n: number) => {
           />
           {suffix && <span className="text-muted-foreground ml-1">{suffix}</span>}
         </div>
+        {helperText && (
+  <p className="text-xs text-muted-foreground leading-snug mt-1">
+    {helperText}
+  </p>
+)}
+
         
         <button
           type="button"
