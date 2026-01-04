@@ -133,6 +133,7 @@ export interface IncomeCheckpoint {
   otherIncome: number;
   fromPortfolio: number;
   portfolioBalance: number;
+  withdrawalRate: number;
   stressLevel: 'good' | 'warn' | 'bad';
 }
 
