@@ -14,8 +14,18 @@ const formatCurrency = (value: number) => {
 };
 
 export function ResultsSummary({ results }: ResultsSummaryProps) {
-  const { requiredSavings, projectedAtRetirement, gap, isOnTrack } = results;
+  const { requiredSavings, projectedAtRetirement, gap, isOnTrack70, successProbability } = results;
 
+const CONFIDENCE_TARGET = 0.7;
+
+// If Monte Carlo is enabled (successProbability exists), use that for “on track”
+// Otherwise fall back to deterministic gap logic.
+const isOnTrack7070 =
+  typeof successProbability === 'number'
+    ? successProbability >= CONFIDENCE_TARGET
+    : isOnTrack70;
+
+  
   return (
     <div className="grid gap-4 sm:grid-cols-3">
       <div className="glass-card p-4 sm:p-6 text-center">
@@ -40,26 +50,26 @@ export function ResultsSummary({ results }: ResultsSummaryProps) {
       
       <div className={cn(
         'glass-card p-4 sm:p-6 text-center border-2',
-        isOnTrack ? 'border-success/30' : 'border-warning/30'
+        isOnTrack70 ? 'border-success/30' : 'border-warning/30'
       )}>
         <div className="flex items-center justify-center gap-2 mb-2">
-          {isOnTrack ? (
+          {isOnTrack70 ? (
             <TrendingUp className="w-5 h-5 text-success" />
           ) : (
             <TrendingDown className="w-5 h-5 text-warning" />
           )}
           <span className="text-sm font-medium text-muted-foreground">
-            {isOnTrack ? 'Surplus' : 'Gap'}
+            {isOnTrack70 ? 'Surplus' : 'Gap'}
           </span>
         </div>
         <div className={cn(
           'text-2xl sm:text-3xl font-bold',
-          isOnTrack ? 'text-success' : 'text-warning'
+          isOnTrack70 ? 'text-success' : 'text-warning'
         )}>
-          {isOnTrack ? '+' : '-'}{formatCurrency(Math.abs(gap))}
+          {isOnTrack70 ? '+' : '-'}{formatCurrency(Math.abs(gap))}
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          {isOnTrack ? "You're ahead of your goal!" : 'Additional savings needed'}
+          {isOnTrack70 ? "You're ahead of your goal!" : 'Additional savings needed'}
         </p>
       </div>
     </div>
