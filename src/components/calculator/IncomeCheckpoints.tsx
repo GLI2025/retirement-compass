@@ -52,6 +52,15 @@ export function IncomeCheckpoints({ checkpoints }: IncomeCheckpointsProps) {
                 <span className="opacity-70">From portfolio</span>
                 <span className="font-semibold">{formatCurrency(checkpoint.fromPortfolio)}</span>
               </div>
+<div className="flex justify-between">
+  <span>Withdrawal rate</span>
+  <span>
+    {checkpoint.portfolioBalance > 0
+      ? `${(checkpoint.withdrawalRate * 100).toFixed(2)}%`
+      : "—"}
+  </span>
+</div>
+
               
               <div className="flex justify-between">
                 <span className="opacity-70">Balance</span>
