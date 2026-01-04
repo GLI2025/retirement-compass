@@ -60,52 +60,52 @@ const roundForField = (n: number) => {
 };
 //Fix percent formatting to 2 decimals
 
-  return (
-    <div className={cn('space-y-2', className)}>
-      <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-        {label}
-        {tooltip && (
-          <span className="tooltip-trigger text-xs" title={tooltip}>
-            ⓘ
-          </span>
-        )}
-      </label>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={handleDecrease}
-          className="step-button"
-          disabled={value <= min}
-        >
-          <Minus className="w-4 h-4" />
-        </button>
-        
-        <div className="glass-input flex-1 flex items-center px-4 py-3">
-          {prefix && <span className="text-muted-foreground mr-1">{prefix}</span>}
-          <input
-            type="text"
-            value={formatValue()}
-            onChange={handleInputChange}
-            className="bg-transparent w-full text-center font-semibold text-lg focus:outline-none"
-          />
-          {suffix && <span className="text-muted-foreground ml-1">{suffix}</span>}
-        </div>
-        {helperText && (
-  <p className="text-xs text-muted-foreground leading-snug mt-1">
-    {helperText}
-  </p>
-)}
+return (
+  <div className={cn('space-y-2', className)}>
+    <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+      {label}
+      {tooltip && (
+        <span className="tooltip-trigger text-xs" title={tooltip}>
+          ⓘ
+        </span>
+      )}
+    </label>
 
-        
-        <button
-          type="button"
-          onClick={handleIncrease}
-          className="step-button"
-          disabled={value >= max}
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={handleDecrease}
+        className="step-button"
+        disabled={value <= min}
+      >
+        <Minus className="w-4 h-4" />
+      </button>
+
+      <div className="glass-input flex-1 flex items-center px-4 py-3">
+        {prefix && <span className="text-muted-foreground mr-1">{prefix}</span>}
+        <input
+          type="text"
+          value={formatValue()}
+          onChange={handleInputChange}
+          className="bg-transparent w-full text-center font-semibold text-lg focus:outline-none"
+        />
+        {suffix && <span className="text-muted-foreground ml-1">{suffix}</span>}
       </div>
+
+      <button
+        type="button"
+        onClick={handleIncrease}
+        className="step-button"
+        disabled={value >= max}
+      >
+        <Plus className="w-4 h-4" />
+      </button>
     </div>
-  );
-}
+
+    {helperText && (
+      <p className="text-xs text-muted-foreground leading-snug">
+        {helperText}
+      </p>
+    )}
+  </div>
+);
