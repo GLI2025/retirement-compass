@@ -105,6 +105,7 @@ export function RetirementCalculator() {
               label="Retirement Age"
               value={inputs.retirementAge}
               onChange={(v) => updateInput('retirementAge', v)}
+              helperText="Pension tip: set this to the age your pension starts."
               min={inputs.currentAge + 1}
               max={80}
               step={1}
@@ -115,6 +116,7 @@ export function RetirementCalculator() {
               label="Monthly Expenses"
               value={inputs.monthlyExpenses}
               onChange={(v) => updateInput('monthlyExpenses', v)}
+              helperText="Enter expenses in today’s dollars. If inflation is enabled, we increase these automatically over time."
               min={0}
               max={50000}
               step={100}
@@ -129,6 +131,7 @@ export function RetirementCalculator() {
               label="Current Savings"
               value={inputs.currentSavings}
               onChange={(v) => updateInput('currentSavings', v)}
+              helperText="For many pension retirees, savings mainly act as a bridge until other income begins."
               min={0}
               step={1000}
               prefix="$"
@@ -139,6 +142,7 @@ export function RetirementCalculator() {
               label="Monthly Contribution"
               value={inputs.monthlyContribution}
               onChange={(v) => updateInput('monthlyContribution', v)}
+              helperText="If you stop working at retirement, contributions usually drop to $0."
               min={0}
               step={50}
               prefix="$"
@@ -149,6 +153,7 @@ export function RetirementCalculator() {
               label="Employer Match"
               value={inputs.employerContribution}
               onChange={(v) => updateInput('employerContribution', v)}
+              helperText="Employer contributions typically stop once you leave your job."
               min={0}
               step={50}
               prefix="$"
@@ -163,10 +168,13 @@ export function RetirementCalculator() {
             <Wallet className="w-5 h-5 text-primary" />
             <h2 className="text-lg font-semibold">Other Income Sources</h2>
           </div>
-          <p className="text-sm text-muted-foreground mb-4">
-            Add any additional income you expect during retirement — pensions, rental properties, 
-            part-time work, annuities, etc.
-          </p>
+        <p className="text-sm text-muted-foreground mb-4">
+        Add any additional income you expect during retirement — especially a pension.
+        <span className="block mt-2">
+        <strong>Pension tip:</strong> Add your pension starting at your retirement age. Turn COLA on only if your pension increases over time.
+      </span>
+        </p>
+
           <OtherIncomeSection
             incomes={inputs.otherIncome}
             onChange={(incomes) => updateInput('otherIncome', incomes)}
@@ -188,6 +196,7 @@ export function RetirementCalculator() {
               label="Inflation Rate"
               value={inputs.inflationRate}
               onChange={(v) => updateInput('inflationRate', v)}
+              helperText="If expenses are entered in today’s dollars, inflation will scale them automatically."
               min={0}
               max={10}
               step={0.1}
@@ -217,6 +226,7 @@ export function RetirementCalculator() {
                   label="Social Security Claim Age"
                   value={inputs.ssClaimAge}
                   onChange={(v) => updateInput('ssClaimAge', v)}
+                  helperText="This is a timing lever. Delaying can reduce how much you withdraw from savings."
                   min={62}
                   max={70}
                   step={1}
@@ -226,6 +236,7 @@ export function RetirementCalculator() {
                   label="Expected SS Monthly Benefit"
                   value={inputs.ssMonthlyBenefit}
                   onChange={(v) => updateInput('ssMonthlyBenefit', v)}
+                  helperText="Use the amount shown on SSA (today’s dollars). Don’t inflate it yourself."
                   min={0}
                   step={100}
                   prefix="$"
@@ -241,6 +252,10 @@ export function RetirementCalculator() {
                 />
                 <span className="text-sm">Apply COLA to Social Security</span>
               </label>
+              <p className="text-xs text-muted-foreground leading-snug">
+  If inflation is enabled, COLA grows Social Security over time. (You should enter SS in today’s dollars.)
+</p>
+
             </div>
           </ToggleOption>
 
@@ -255,6 +270,7 @@ export function RetirementCalculator() {
                 label="Payoff Age"
                 value={inputs.housePayoffAge}
                 onChange={(v) => updateInput('housePayoffAge', v)}
+                helperText="At and after this age, we subtract your mortgage from expenses (in the same inflated dollars as expenses)."
                 min={inputs.currentAge}
                 max={90}
                 step={1}
@@ -263,6 +279,7 @@ export function RetirementCalculator() {
                 label="Current Mortgage Payment"
                 value={inputs.currentMortgagePayment}
                 onChange={(v) => updateInput('currentMortgagePayment', v)}
+                helperText="Enter today’s monthly payment (don’t inflate it)."
                 min={0}
                 step={100}
                 prefix="$"
