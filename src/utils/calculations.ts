@@ -267,23 +267,9 @@ function generateCheckpoints(
       status,
     };
   });
-
-      
-      checkpoints.push({
-        age,
-        label: labels[index],
-        monthlyNeed,
-        ssIncome,
-        otherIncome,
-        fromPortfolio,
-        portfolioBalance: balance,
-        status
-      });
-    }
-  });
-  
-  return checkpoints;
 }
+      
+   
 
 // Generate guidance recommendations
 export function generateGuidance(
