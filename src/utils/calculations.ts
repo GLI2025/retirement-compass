@@ -23,7 +23,7 @@ function calculateSSIncome(
   
   // Apply COLA: SS grows with inflation every year after currentAge once claiming starts
   if (inputs.applyInflationToSS && inputs.inflationEnabled) {
-    // Grow from currentAge to current age (continuous COLA, not just to claim age)
+    // Grow from currentAge to claim age (continuous COLA, not just to claim age)
     const yearsOfCOLA = age - inputs.currentAge;
     ssBenefit = ssBenefit * Math.pow(1 + inputs.inflationRate / 100, yearsOfCOLA);
   }
@@ -138,7 +138,7 @@ function calculateRequiredSavings(inputs: CalculatorInputs): number {
     ? STRATEGIES[inputs.retirementStrategy] 
     : STRATEGIES[inputs.investmentStrategy];
   
-  // Nominal discount rate (no inflation subtraction - cashflows are already nominal)
+  // “We discount using expectedReturn. When inflation is enabled, cashflows are nominal. When inflation is disabled, treat expectedReturn as a real return (today-dollar framework).”
   const nominalRate = retirementStrategy.expectedReturn;
   
   // Sum PV of each year's net expenses in nominal terms
@@ -323,12 +323,21 @@ interface MonteCarloResult {
 }
 
 // Box-Muller transform for normal distribution
-function randomNormal(mean: number, stdDev: number): number {
+// Replace randomNormal(...) usage for returns with lognormal sampling
+
+function randomStandardNormal(): number {
+  // Box-Muller
   const u1 = Math.random();
   const u2 = Math.random();
-  const z0 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-  return mean + z0 * stdDev;
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 }
+
+function sampleLognormalMonthlyReturn(muMonthlyLog: number, sigmaMonthly: number): number {
+  const z = randomStandardNormal();
+  const logReturn = (muMonthlyLog - 0.5 * sigmaMonthly * sigmaMonthly) + sigmaMonthly * z;
+  return Math.exp(logReturn) - 1; // always > -1
+}
+
 
 // Simulate a single Monte Carlo path
 function simulatePath(
@@ -365,15 +374,18 @@ function simulatePath(
 const annualVol = Math.sqrt(
   stockAlloc ** 2 * stockVol ** 2 + bondAlloc ** 2 * bondVol ** 2
 );
-const monthlyVol = annualVol / Math.sqrt(12);
-const expectedMonthlyReturn = Math.pow(1 + currentStrategy.expectedReturn, 1 / 12) - 1;
+const sigmaMonthly = annualVol / Math.sqrt(12);
+
+// Use log-mean derived from annual expected return (geometric monthly)
+const muMonthlyLog = Math.log(1 + currentStrategy.expectedReturn) / 12;
 
 
     if (age < inputs.retirementAge) {
       // Accumulation phase
       for (let month = 0; month < 12; month++) {
-  const monthlyReturn = randomNormal(expectedMonthlyReturn, monthlyVol);
-  balance = balance * (1 + monthlyReturn) + monthlyContrib;
+ const monthlyReturn = sampleLognormalMonthlyReturn(muMonthlyLog, sigmaMonthly);
+balance = balance * (1 + monthlyReturn) + monthlyContrib;
+
 }
 
       if (inputs.annualIncreaseEnabled) {
@@ -387,8 +399,9 @@ const expectedMonthlyReturn = Math.pow(1 + currentStrategy.expectedReturn, 1 / 1
       const monthlyWithdrawal = Math.max(0, monthlyExpenses - ssIncome - otherIncome);
 
       for (let month = 0; month < 12; month++) {
-  const monthlyReturn = randomNormal(expectedMonthlyReturn, monthlyVol);
-  balance = balance * (1 + monthlyReturn) - monthlyWithdrawal;
+ const monthlyReturn = sampleLognormalMonthlyReturn(muMonthlyLog, sigmaMonthly);
+balance = balance * (1 + monthlyReturn) - monthlyWithdrawal;
+
   if (balance < 0) balance = 0;
 }
 
