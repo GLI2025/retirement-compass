@@ -264,7 +264,7 @@ function generateCheckpoints(
       otherIncome,
       fromPortfolio,
       portfolioBalance: balance,
-      status,
+      stressLevel: status,
     };
   });
 }
