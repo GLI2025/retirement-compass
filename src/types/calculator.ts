@@ -133,7 +133,7 @@ export interface IncomeCheckpoint {
   otherIncome: number;
   fromPortfolio: number;
   portfolioBalance: number;
-  status: 'good' | 'warn' | 'bad';
+  stressLevel: 'good' | 'warn' | 'bad';
 }
 
 // Calculation results
