@@ -128,7 +128,7 @@ export function RetirementCalculator() {
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <StepInput
-              label="Current Savings"
+              label="Total Retirement Savings"
               value={inputs.currentSavings}
               onChange={(v) => updateInput('currentSavings', v)}
               helperText="For many pension retirees, savings mainly act as a bridge until other income begins."
