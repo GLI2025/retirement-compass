@@ -131,11 +131,11 @@ export function RetirementCalculator() {
               label="Total Retirement Savings"
               value={inputs.currentSavings}
               onChange={(v) => updateInput('currentSavings', v)}
-              helperText="For many pension retirees, savings mainly act as a bridge until other income begins."
+              helperText="This is the total amount you already have saved for retirement. Monthly savings are entered separately below."
               min={0}
               step={1000}
               prefix="$"
-              tooltip="Total retirement savings today"
+              tooltip="Many use this amount as a bridge before a pension or SS begin."
             />
             
             <StepInput
