@@ -14,16 +14,15 @@ const formatCurrency = (value: number) => {
 };
 
 export function ResultsSummary({ results }: ResultsSummaryProps) {
-  const { requiredSavings, projectedAtRetirement, gap, isOnTrack70, successProbability } = results;
+  const { requiredSavings, projectedAtRetirement, gap, isOnTrack, successProbability } = results;
 
 const CONFIDENCE_TARGET = 0.7;
 
-// If Monte Carlo is enabled (successProbability exists), use that for “on track”
-// Otherwise fall back to deterministic gap logic.
-const isOnTrack7070 =
+const isOnTrack70 =
   typeof successProbability === 'number'
     ? successProbability >= CONFIDENCE_TARGET
-    : isOnTrack70;
+    : isOnTrack;
+
 
   
   return (
