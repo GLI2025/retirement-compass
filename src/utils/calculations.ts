@@ -253,9 +253,18 @@ function generateCheckpoints(
     
     const withdrawalRate = balance > 0 ? annualWithdrawal / balance : 0;
 
-    let status: "good" | "warn" | "bad" = "good";
-    if (withdrawalRate > 0.06) status = "bad";
-    else if (withdrawalRate > 0.04) status = "warn";
+    // Dynamic stress thresholds:
+// After age 70, higher withdrawal rates are less “stressful” because time horizon is shorter.
+const yearsPast70 = Math.max(0, age - 70);
+
+// Increase thresholds by 1% per 10 years past 70 (0.001 per year)
+const warnThreshold = Math.min(0.10, 0.04 + yearsPast70 * 0.001);
+const badThreshold  = Math.min(0.12, 0.06 + yearsPast70 * 0.001);
+
+let status: "good" | "warn" | "bad" = "good";
+if (withdrawalRate >= badThreshold) status = "bad";
+else if (withdrawalRate >= warnThreshold) status = "warn";
+
 
     return {
       age,
