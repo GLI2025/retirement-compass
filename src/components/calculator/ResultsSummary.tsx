@@ -16,12 +16,19 @@ const formatCurrency = (value: number) => {
 export function ResultsSummary({ results }: ResultsSummaryProps) {
   const { requiredSavings, projectedAtRetirement, gap, isOnTrack, successProbability } = results;
 
-  const CONFIDENCE_TARGET = 0.7;
+ // --- inside ResultsSummary.tsx ---
 
-  const isOnTrack70 =
-    typeof successProbability === 'number'
-      ? successProbability >= CONFIDENCE_TARGET
-      : isOnTrack;
+const CONFIDENCE_TARGET = 0.7;
+
+export function ResultsSummary({ results }: ResultsSummaryProps) {
+  const { requiredSavings, projectedAtRetirement, gap, successProbability } = results;
+
+  const isSurplus = gap >= 0;
+
+  // Monte Carlo “confidence” (only applies if successProbability exists)
+  const hasMC = typeof successProbability === 'number';
+  const heldUpCount = hasMC ? Math.round(successProbability * 100) : null;
+  const meetsConfidenceTarget = hasMC ? successProbability >= CONFIDENCE_TARGET : null;
 
   return (
     <div className="grid gap-4 sm:grid-cols-3">
@@ -29,67 +36,65 @@ export function ResultsSummary({ results }: ResultsSummaryProps) {
       <div className="glass-card p-4 sm:p-6 text-center">
         <div className="flex items-center justify-center gap-2 mb-2">
           <Target className="w-5 h-5 text-muted-foreground" />
-          <span className="text-sm font-medium text-muted-foreground">
-            Required Savings
-          </span>
+          <span className="text-sm font-medium text-muted-foreground">Required Savings</span>
         </div>
-        <div className="text-2xl sm:text-3xl font-bold">
-          {formatCurrency(requiredSavings)}
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          at retirement to maintain lifestyle
-        </p>
+        <div className="text-2xl sm:text-3xl font-bold">{formatCurrency(requiredSavings)}</div>
+        <p className="text-xs text-muted-foreground mt-2">at retirement to maintain lifestyle</p>
       </div>
 
       {/* Projected */}
       <div className="glass-card p-4 sm:p-6 text-center">
         <div className="flex items-center justify-center gap-2 mb-2">
           <TrendingUp className="w-5 h-5 text-primary" />
-          <span className="text-sm font-medium text-muted-foreground">
-            Projected Savings
-          </span>
+          <span className="text-sm font-medium text-muted-foreground">Projected Savings</span>
         </div>
         <div className="text-2xl sm:text-3xl font-bold gradient-text">
           {formatCurrency(projectedAtRetirement)}
         </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          at your target retirement age
-        </p>
+        <p className="text-xs text-muted-foreground mt-2">at your target retirement age</p>
       </div>
 
       {/* Surplus / Gap */}
       <div
         className={cn(
           'glass-card p-4 sm:p-6 text-center border-2',
-          isOnTrack70 ? 'border-success/30' : 'border-warning/30'
+          isSurplus ? 'border-success/30' : 'border-warning/30'
         )}
       >
         <div className="flex items-center justify-center gap-2 mb-2">
-          {isOnTrack70 ? (
+          {isSurplus ? (
             <TrendingUp className="w-5 h-5 text-success" />
           ) : (
             <TrendingDown className="w-5 h-5 text-warning" />
           )}
           <span className="text-sm font-medium text-muted-foreground">
-            {gap >= 0 ? 'Surplus' : 'Gap'}
+            {isSurplus ? 'Surplus' : 'Gap'}
           </span>
         </div>
 
         <div
           className={cn(
             'text-2xl sm:text-3xl font-bold',
-            gap >= 0 ? 'text-success' : 'text-warning'
+            isSurplus ? 'text-success' : 'text-warning'
           )}
         >
-          {gap >= 0 ? '+' : '-'}
+          {isSurplus ? '+' : '-'}
           {formatCurrency(Math.abs(gap))}
         </div>
 
-        <p className="text-xs text-muted-foreground mt-2">
-          {typeof successProbability === 'number'
-            ? `Plan held up in ${Math.round(successProbability * 100)} out of 100 market scenarios`
-            : 'Based on portfolio value at retirement age'}
-        </p>
+        {/* Monte Carlo line (separate from surplus/gap) */}
+        {hasMC ? (
+          <p className="text-xs text-muted-foreground mt-2">
+            Plan held up in <strong>{heldUpCount} out of 100</strong> market scenarios
+            {meetsConfidenceTarget === false && (
+              <> (below {Math.round(CONFIDENCE_TARGET * 100)} target)</>
+            )}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground mt-2">
+            {isSurplus ? "You're ahead of your goal!" : 'Additional savings needed'}
+          </p>
+        )}
       </div>
     </div>
   );
