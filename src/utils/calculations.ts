@@ -10,6 +10,9 @@ import {
 const LIFE_EXPECTANCY = 95;
 
 // Calculate SS income at a given age
+// SS benefit input is assumed to be in "today's dollars" (real).
+// If inflation + COLA are enabled, we convert it to nominal dollars at each future age
+// so it stays comparable to inflated expenses.
 // Returns nominal dollars if COLA is enabled (grows with inflation from currentAge)
 function calculateSSIncome(
   inputs: CalculatorInputs,
@@ -251,7 +254,9 @@ function generateCheckpoints(
 
     const annualWithdrawal = fromPortfolio * 12;
     
-    const withdrawalRate = balance > 0 ? annualWithdrawal / balance : 0;
+    const withdrawalRate =
+  balance > 0 ? annualWithdrawal / balance : (annualWithdrawal > 0 ? 1 : 0);
+
 
     // Dynamic stress thresholds:
 // After age 70, higher withdrawal rates are less “stressful” because time horizon is shorter.
