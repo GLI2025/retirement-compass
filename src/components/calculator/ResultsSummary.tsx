@@ -47,26 +47,41 @@ const isOnTrack70 =
         <p className="text-xs text-muted-foreground mt-2">at your target retirement age</p>
       </div>
       
-      <div className={cn(
-        'glass-card p-4 sm:p-6 text-center border-2',
-        isOnTrack70 ? 'border-success/30' : 'border-warning/30'
-      )}>
-        <div className="flex items-center justify-center gap-2 mb-2">
-          {isOnTrack70 ? (
-            <TrendingUp className="w-5 h-5 text-success" />
-          ) : (
-            <TrendingDown className="w-5 h-5 text-warning" />
-          )}
-          <span className="text-sm font-medium text-muted-foreground">
-            {isOnTrack70 ? 'Surplus' : 'Gap'}
-          </span>
-        </div>
-        <div className={cn(
-          'text-2xl sm:text-3xl font-bold',
-          isOnTrack70 ? 'text-success' : 'text-warning'
-        )}>
-          {isOnTrack70 ? '+' : '-'}{formatCurrency(Math.abs(gap))}
-        </div>
+    <div
+  className={cn(
+    'glass-card p-4 sm:p-6 text-center border-2',
+    isOnTrack70 ? 'border-success/30' : 'border-warning/30'
+  )}
+>
+  {/* Label + Icon */}
+  <div className="flex items-center justify-center gap-2 mb-2">
+    {isOnTrack70 ? (
+      <TrendingUp className="w-5 h-5 text-success" />
+    ) : (
+      <TrendingDown className="w-5 h-5 text-warning" />
+    )}
+    <span className="text-sm font-medium text-muted-foreground">
+      {gap >= 0 ? 'Surplus' : 'Gap'}
+    </span>
+  </div>
+
+  {/* Dollar Amount */}
+  <div
+    className={cn(
+      'text-2xl sm:text-3xl font-bold',
+      gap >= 0 ? 'text-success' : 'text-warning'
+    )}
+  >
+    {gap >= 0 ? '+' : '-'}
+    {formatCurrency(Math.abs(gap))}
+  </div>
+
+  {/* Helper text */}
+  <p className="text-xs text-muted-foreground mt-2">
+    Based on portfolio value at retirement age
+  </p>
+</div>
+
         <p className="text-xs text-muted-foreground mt-2">
           {isOnTrack70 ? "You're ahead of your goal!" : 'Additional savings needed'}
         </p>
