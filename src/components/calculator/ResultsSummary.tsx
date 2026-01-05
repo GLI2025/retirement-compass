@@ -6,29 +6,24 @@ interface ResultsSummaryProps {
   results: CalculatorResults;
 }
 
+const CONFIDENCE_TARGET = 0.7;
+
 const formatCurrency = (value: number) => {
-  if (Math.abs(value) >= 1000000) {
-    return `$${(value / 1000000).toFixed(2)}M`;
+  if (Math.abs(value) >= 1_000_000) {
+    return `$${(value / 1_000_000).toFixed(2)}M`;
   }
   return `$${Math.round(value).toLocaleString()}`;
 };
-
-export function ResultsSummary({ results }: ResultsSummaryProps) {
-  const { requiredSavings, projectedAtRetirement, gap, isOnTrack, successProbability } = results;
-
- // --- inside ResultsSummary.tsx ---
-
-const CONFIDENCE_TARGET = 0.7;
 
 export function ResultsSummary({ results }: ResultsSummaryProps) {
   const { requiredSavings, projectedAtRetirement, gap, successProbability } = results;
 
   const isSurplus = gap >= 0;
 
-  // Monte Carlo “confidence” (only applies if successProbability exists)
+  // Monte Carlo “confidence” line (only when MC is enabled and successProbability exists)
   const hasMC = typeof successProbability === 'number';
-  const heldUpCount = hasMC ? Math.round(successProbability * 100) : null;
-  const meetsConfidenceTarget = hasMC ? successProbability >= CONFIDENCE_TARGET : null;
+  const heldUpCount = hasMC ? Math.round(successProbability * 100) : 0;
+  const belowTarget = hasMC ? successProbability < CONFIDENCE_TARGET : false;
 
   return (
     <div className="grid gap-4 sm:grid-cols-3">
@@ -38,8 +33,12 @@ export function ResultsSummary({ results }: ResultsSummaryProps) {
           <Target className="w-5 h-5 text-muted-foreground" />
           <span className="text-sm font-medium text-muted-foreground">Required Savings</span>
         </div>
-        <div className="text-2xl sm:text-3xl font-bold">{formatCurrency(requiredSavings)}</div>
-        <p className="text-xs text-muted-foreground mt-2">at retirement to maintain lifestyle</p>
+        <div className="text-2xl sm:text-3xl font-bold">
+          {formatCurrency(requiredSavings)}
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          at retirement to maintain lifestyle
+        </p>
       </div>
 
       {/* Projected */}
@@ -51,7 +50,9 @@ export function ResultsSummary({ results }: ResultsSummaryProps) {
         <div className="text-2xl sm:text-3xl font-bold gradient-text">
           {formatCurrency(projectedAtRetirement)}
         </div>
-        <p className="text-xs text-muted-foreground mt-2">at your target retirement age</p>
+        <p className="text-xs text-muted-foreground mt-2">
+          at your target retirement age
+        </p>
       </div>
 
       {/* Surplus / Gap */}
@@ -82,11 +83,11 @@ export function ResultsSummary({ results }: ResultsSummaryProps) {
           {formatCurrency(Math.abs(gap))}
         </div>
 
-        {/* Monte Carlo line (separate from surplus/gap) */}
+        {/* Always keep this line separate from surplus/gap */}
         {hasMC ? (
           <p className="text-xs text-muted-foreground mt-2">
             Plan held up in <strong>{heldUpCount} out of 100</strong> market scenarios
-            {meetsConfidenceTarget === false && (
+            {belowTarget && (
               <> (below {Math.round(CONFIDENCE_TARGET * 100)} target)</>
             )}
           </p>
