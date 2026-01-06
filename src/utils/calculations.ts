@@ -7,6 +7,8 @@ import {
   STRATEGIES 
 } from '@/types/calculator';
 
+import { applySpendingRule } from '@/lib/calculations/spendingRules';
+
 const LIFE_EXPECTANCY = 95;
 
 // Calculate SS income at a given age
@@ -122,12 +124,30 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
       const monthlyExpenses = calculateMonthlyExpenses(inputs, age);
       const ssIncome = calculateSSIncome(inputs, age);
       const otherIncome = calculateOtherIncome(inputs, age);
-      const monthlyWithdrawal = Math.max(0, monthlyExpenses - ssIncome - otherIncome);
-      
-      for (let month = 0; month < 12; month++) {
-        balance = balance * (1 + monthlyReturn) - monthlyWithdrawal;
-        if (balance < 0) balance = 0;
-      }
+      const baselinePortfolioWithdrawal = Math.max(
+  0,
+  monthlyExpenses - (ssIncome + otherIncome)
+);
+
+const retirementStartBalance = data.find(d => d.age === inputs.retirementAge)?.balance ?? balance;
+
+for (let month = 0; month < 12; month++) {
+  const monthIndexFromRetirement = (age - inputs.retirementAge) * 12 + month;
+  const remainingMonths = (LIFE_EXPECTANCY - age) * 12 + (12 - month);
+
+  const withdrawalFromPortfolio = applySpendingRule(inputs, {
+    age,
+    monthIndexFromRetirement,
+    remainingMonths,
+    portfolioBalance: balance,
+    retirementStartBalance,
+    baselinePortfolioWithdrawal
+  });
+
+  balance = balance * (1 + monthlyReturn) - withdrawalFromPortfolio;
+  if (balance < 0) balance = 0;
+}
+
     }
   }
   
@@ -443,14 +463,32 @@ balance = balance * (1 + monthlyReturn) + monthlyContrib;
       const monthlyExpenses = calculateMonthlyExpenses(inputs, age);
       const ssIncome = calculateSSIncome(inputs, age);
       const otherIncome = calculateOtherIncome(inputs, age);
-      const monthlyWithdrawal = Math.max(0, monthlyExpenses - ssIncome - otherIncome);
+     const baselinePortfolioWithdrawal = Math.max(
+  0,
+  monthlyExpenses - (ssIncome + otherIncome)
+);
 
-      for (let month = 0; month < 12; month++) {
- const monthlyReturn = sampleLognormalMonthlyReturn(muMonthlyLog, sigmaMonthly);
-balance = balance * (1 + monthlyReturn) - monthlyWithdrawal;
+const retirementStartBalance = startingBalance; // minimum to run; applySpendingRule needs a reference
+
+for (let month = 0; month < 12; month++) {
+  const monthIndexFromRetirement = (age - inputs.retirementAge) * 12 + month;
+  const remainingMonths = (LIFE_EXPECTANCY - age) * 12 + (12 - month);
+
+  const withdrawalFromPortfolio = applySpendingRule(inputs, {
+    age,
+    monthIndexFromRetirement,
+    remainingMonths,
+    portfolioBalance: balance,
+    retirementStartBalance,
+    baselinePortfolioWithdrawal
+  });
+
+  const monthlyReturn = sampleLognormalMonthlyReturn(muMonthlyLog, sigmaMonthly);
+  balance = balance * (1 + monthlyReturn) - withdrawalFromPortfolio;
 
   if (balance < 0) balance = 0;
 }
+
 
     }
   }
