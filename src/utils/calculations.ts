@@ -93,6 +93,8 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
   
   let balance = inputs.currentSavings;
   let monthlyContrib = inputs.monthlyContribution + inputs.employerContribution;
+  let retirementStartBalance = 0;
+
   
   for (let age = inputs.currentAge; age <= LIFE_EXPECTANCY; age++) {
     // Add one-time deposits received at this age
@@ -118,6 +120,11 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
       }
     } else {
       // Retirement phase - withdrawals
+if (retirementStartBalance === 0) {
+  retirementStartBalance = balance;
+}
+
+
       const annualReturn = retirementStrategy.expectedReturn;
       const monthlyReturn = Math.pow(1 + annualReturn, 1 / 12) - 1;
       
@@ -129,11 +136,14 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
   monthlyExpenses - (ssIncome + otherIncome)
 );
 
-const retirementStartBalance = data.find(d => d.age === inputs.retirementAge)?.balance ?? balance;
+
 
 for (let month = 0; month < 12; month++) {
   const monthIndexFromRetirement = (age - inputs.retirementAge) * 12 + month;
-  const remainingMonths = (LIFE_EXPECTANCY - age) * 12 + (12 - month);
+  const monthsFromNow = (age - inputs.currentAge) * 12 + month;
+const totalMonths = (LIFE_EXPECTANCY - inputs.currentAge) * 12;
+const remainingMonths = Math.max(1, totalMonths - monthsFromNow);
+
 
   const withdrawalFromPortfolio = applySpendingRule(inputs, {
     age,
@@ -189,6 +199,8 @@ function calculateProjectedAtRetirement(inputs: CalculatorInputs): number {
   
   let balance = inputs.currentSavings;
   let monthlyContrib = inputs.monthlyContribution + inputs.employerContribution;
+ 
+
   
   for (let age = inputs.currentAge; age < inputs.retirementAge; age++) {
     // Add one-time deposits received at this age (before growth for the year)
@@ -270,7 +282,26 @@ function generateCheckpoints(
     const monthlyNeed = calculateMonthlyExpenses(inputs, age);
     const ssIncome = calculateSSIncome(inputs, age);
     const otherIncome = calculateOtherIncome(inputs, age);
-    const fromPortfolio = Math.max(0, monthlyNeed - ssIncome - otherIncome);
+    const baselinePortfolioWithdrawal = Math.max(0, monthlyNeed - ssIncome - otherIncome);
+
+// Reference balance should be the portfolio at retirement in the deterministic projection
+const retirementStartBalance =
+  chartData.find(d => d.age === inputs.retirementAge)?.balance ?? balance;
+
+// Compute remaining months from this checkpoint age (annual checkpoints treat month=0)
+const monthsFromNow = (age - inputs.currentAge) * 12;
+const totalMonths = (LIFE_EXPECTANCY - inputs.currentAge) * 12;
+const remainingMonths = Math.max(1, totalMonths - monthsFromNow);
+
+const fromPortfolio = applySpendingRule(inputs, {
+  age,
+  monthIndexFromRetirement: (age - inputs.retirementAge) * 12,
+  remainingMonths,
+  portfolioBalance: balance,
+  retirementStartBalance,
+  baselinePortfolioWithdrawal
+});
+
 
     const annualWithdrawal = fromPortfolio * 12;
     
@@ -279,16 +310,25 @@ function generateCheckpoints(
 
 
     // Dynamic stress thresholds:
-// After age 70, higher withdrawal rates are less “stressful” because time horizon is shorter.
-const yearsPast70 = Math.max(0, age - 70);
-
-// Increase thresholds by 1% per 10 years past 70 (0.001 per year)
-const warnThreshold = Math.min(0.10, 0.04 + yearsPast70 * 0.001);
-const badThreshold  = Math.min(0.12, 0.06 + yearsPast70 * 0.001);
-
+// Stress level (loosen as time horizon shrinks; DWZ should not scare late-life)
 let status: "good" | "warn" | "bad" = "good";
-if (withdrawalRate >= badThreshold) status = "bad";
-else if (withdrawalRate >= warnThreshold) status = "warn";
+
+if (inputs.spendingRule === 'die_with_zero') {
+  status = "good";
+} else {
+  // After age 70, higher withdrawal rates are less “stressful” because time horizon is shorter.
+  const yearsPast70 = Math.max(0, age - 70);
+
+  const warnThreshold = Math.min(0.10, 0.04 + yearsPast70 * 0.001);
+  const badThreshold  = Math.min(0.12, 0.06 + yearsPast70 * 0.001);
+
+  if (withdrawalRate >= badThreshold) status = "bad";
+  else if (withdrawalRate >= warnThreshold) status = "warn";
+}
+
+
+    
+
 
 
     return {
@@ -472,7 +512,10 @@ const retirementStartBalance = startingBalance; // minimum to run; applySpending
 
 for (let month = 0; month < 12; month++) {
   const monthIndexFromRetirement = (age - inputs.retirementAge) * 12 + month;
-  const remainingMonths = (LIFE_EXPECTANCY - age) * 12 + (12 - month);
+  const monthsFromNow = (age - inputs.currentAge) * 12 + month;
+const totalMonths = (LIFE_EXPECTANCY - inputs.currentAge) * 12;
+const remainingMonths = Math.max(1, totalMonths - monthsFromNow);
+
 
   const withdrawalFromPortfolio = applySpendingRule(inputs, {
     age,
