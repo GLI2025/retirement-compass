@@ -1,9 +1,9 @@
 // Investment strategy definitions
-export type InvestmentStrategy = 
-  | 'conservative' 
-  | 'moderate' 
-  | 'balanced' 
-  | 'growth' 
+export type InvestmentStrategy =
+  | 'conservative'
+  | 'moderate'
+  | 'balanced'
+  | 'growth'
   | 'aggressive';
 
 export interface StrategyInfo {
@@ -71,9 +71,21 @@ export interface OneTimeDeposit {
   ageReceived: number;
 }
 
+export type SpendingRule = 'fixed' | 'guardrails' | 'die_with_zero';
+
+export interface GuardrailsConfig {
+  lowerBand: number;
+  upperBand: number;
+  cutPct: number;
+  raisePct: number;
+}
+
+export interface DieWithZeroConfig {
+  targetAge: number;
+}
+
 // Main calculator inputs
 export interface CalculatorInputs {
-  // Required
   currentAge: number;
   retirementAge: number;
   monthlyExpenses: number;
@@ -81,35 +93,31 @@ export interface CalculatorInputs {
   monthlyContribution: number;
   employerContribution: number;
   investmentStrategy: InvestmentStrategy;
-  
-  // Inflation settings
+
   inflationEnabled: boolean;
   inflationRate: number;
   applyInflationToSS: boolean;
-  
-  // Contribution increases
+
   annualIncreaseEnabled: boolean;
   annualIncreaseRate: number;
-  
-  // Retirement strategy
+
   retirementStrategyEnabled: boolean;
   retirementStrategy: InvestmentStrategy;
-  
-  // What-if scenarios
+
   ssEnabled: boolean;
   ssClaimAge: number;
   ssMonthlyBenefit: number;
   housePayoffEnabled: boolean;
   housePayoffAge: number;
   currentMortgagePayment: number;
-  
-  // Other income
+
   otherIncome: OtherIncome[];
-  
-  // One-time deposits
   oneTimeDeposits: OneTimeDeposit[];
-  
-  // Monte Carlo
+
+  spendingRule: SpendingRule;
+  guardrails?: GuardrailsConfig;
+  dieWithZero?: DieWithZeroConfig;
+
   monteCarloEnabled: boolean;
 }
 
@@ -165,26 +173,28 @@ export const DEFAULT_INPUTS: CalculatorInputs = {
   monthlyContribution: 500,
   employerContribution: 250,
   investmentStrategy: 'balanced',
-  
+
   inflationEnabled: true,
   inflationRate: 3.3,
   applyInflationToSS: true,
-  
+
   annualIncreaseEnabled: false,
   annualIncreaseRate: 1,
-  
+
   retirementStrategyEnabled: false,
   retirementStrategy: 'moderate',
-  
+
   ssEnabled: false,
   ssClaimAge: 67,
   ssMonthlyBenefit: 2000,
   housePayoffEnabled: false,
   housePayoffAge: 65,
   currentMortgagePayment: 2000,
-  
+
   otherIncome: [],
   oneTimeDeposits: [],
-  
-  monteCarloEnabled: false,
+
+  spendingRule: 'fixed',
+
+  monteCarloEnabled: false
 };
