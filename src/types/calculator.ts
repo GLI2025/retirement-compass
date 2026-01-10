@@ -71,17 +71,19 @@ export interface OneTimeDeposit {
   ageReceived: number;
 }
 
+// Spending rules
 export type SpendingRule = 'fixed' | 'guardrails' | 'die_with_zero';
-  guardrails: {
-    lowerBand: 0.8,
-    upperBand: 1.2,
-    cutPct: 0.10,
-    raisePct: 0.10
-  },
 
-  dieWithZero: {
-    targetAge: 95
-  },
+export interface GuardrailsConfig {
+  lowerBand: number; // e.g. 0.8
+  upperBand: number; // e.g. 1.2
+  cutPct: number;    // e.g. 0.10
+  raisePct: number;  // e.g. 0.10
+}
+
+export interface DieWithZeroConfig {
+  targetAge: number; // e.g. 95
+}
 
 
 export interface GuardrailsConfig {
