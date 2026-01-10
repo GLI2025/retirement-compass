@@ -54,3 +54,4 @@ else if (ctx.portfolioBalance > upper) w *= (1 + g.raisePct);
 
   return Math.max(0, Math.max(ctx.baselinePortfolioWithdrawal, amortized));
 
+}
