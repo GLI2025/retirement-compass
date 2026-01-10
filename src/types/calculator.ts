@@ -86,16 +86,6 @@ export interface DieWithZeroConfig {
 }
 
 
-export interface GuardrailsConfig {
-  lowerBand: number;
-  upperBand: number;
-  cutPct: number;
-  raisePct: number;
-}
-
-export interface DieWithZeroConfig {
-  targetAge: number;
-}
 
 // Main calculator inputs
 export interface CalculatorInputs {
@@ -208,15 +198,7 @@ export const DEFAULT_INPUTS: CalculatorInputs = {
   oneTimeDeposits: [],
 
    spendingRule: 'fixed',
-  guardrails: {
-    lowerBand: 0.8,
-    upperBand: 1.2,
-    cutPct: 0.10,
-    raisePct: 0.10,
-  },
-  dieWithZero: {
-    targetAge: 95,
-  },
+ 
 
 
   monteCarloEnabled: false
