@@ -469,7 +469,7 @@ function simulatePath(
   const bondVol = 0.05;  // ~5% for bonds
 
   let balance = startingBalance;
-  let balance = startingBalance;
+ 
 let monthlyContrib = inputs.monthlyContribution + inputs.employerContribution;
 const balances: number[] = [];
 
