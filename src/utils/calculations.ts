@@ -140,9 +140,17 @@ if (retirementStartBalance === 0) {
 
 for (let month = 0; month < 12; month++) {
   const monthIndexFromRetirement = (age - inputs.retirementAge) * 12 + month;
-  const monthsFromNow = (age - inputs.currentAge) * 12 + month;
-const totalMonths = (LIFE_EXPECTANCY - inputs.currentAge) * 12;
+  
+  const targetAge = inputs.dieWithZero?.targetAge ?? LIFE_EXPECTANCY;
+const endAge =
+  inputs.spendingRule === 'die_with_zero'
+    ? Math.min(targetAge, LIFE_EXPECTANCY)
+    : LIFE_EXPECTANCY;
+
+const monthsFromNow = (age - inputs.currentAge) * 12 + month;
+const totalMonths = (endAge - inputs.currentAge) * 12;
 const remainingMonths = Math.max(1, totalMonths - monthsFromNow);
+
 
 
   const withdrawalFromPortfolio = applySpendingRule(inputs, {
@@ -461,8 +469,12 @@ function simulatePath(
   const bondVol = 0.05;  // ~5% for bonds
 
   let balance = startingBalance;
-  let monthlyContrib = inputs.monthlyContribution + inputs.employerContribution;
-  const balances: number[] = [];
+  let balance = startingBalance;
+let monthlyContrib = inputs.monthlyContribution + inputs.employerContribution;
+const balances: number[] = [];
+
+let retirementStartBalance = 0; // ✅ capture first balance at retirement (for guardrails bands)
+
 
   for (let age = inputs.currentAge; age <= LIFE_EXPECTANCY; age++) {
     // Add one-time deposits
@@ -507,14 +519,25 @@ balance = balance * (1 + monthlyReturn) + monthlyContrib;
   0,
   monthlyExpenses - (ssIncome + otherIncome)
 );
+      // ✅ capture the portfolio balance at the moment retirement starts (first retirement month)
+if (retirementStartBalance === 0) {
+  retirementStartBalance = balance;
+}
 
-const retirementStartBalance = startingBalance; // minimum to run; applySpendingRule needs a reference
+
 
 for (let month = 0; month < 12; month++) {
   const monthIndexFromRetirement = (age - inputs.retirementAge) * 12 + month;
-  const monthsFromNow = (age - inputs.currentAge) * 12 + month;
-const totalMonths = (LIFE_EXPECTANCY - inputs.currentAge) * 12;
+ const targetAge = inputs.dieWithZero?.targetAge ?? LIFE_EXPECTANCY;
+const endAge =
+  inputs.spendingRule === 'die_with_zero'
+    ? Math.min(targetAge, LIFE_EXPECTANCY)
+    : LIFE_EXPECTANCY;
+
+const monthsFromNow = (age - inputs.currentAge) * 12 + month;
+const totalMonths = (endAge - inputs.currentAge) * 12;
 const remainingMonths = Math.max(1, totalMonths - monthsFromNow);
+
 
 
   const withdrawalFromPortfolio = applySpendingRule(inputs, {
