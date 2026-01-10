@@ -493,7 +493,7 @@ export function RetirementCalculator() {
 
         {/* Results Summary with Export Button */}
         <div className="space-y-4">
-          <ResultsSummary results={results} />
+         <ResultsSummary results={results} inputs={inputs} />
           <div className="flex justify-center">
             <ExportPDFButton results={results} inputs={inputs} chartRef={chartRef} />
           </div>
