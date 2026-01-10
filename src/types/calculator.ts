@@ -184,7 +184,7 @@ export const DEFAULT_INPUTS: CalculatorInputs = {
   monthlyContribution: 500,
   employerContribution: 250,
   investmentStrategy: 'balanced',
-
+ 
   inflationEnabled: true,
   inflationRate: 3.3,
   applyInflationToSS: true,
@@ -205,7 +205,17 @@ export const DEFAULT_INPUTS: CalculatorInputs = {
   otherIncome: [],
   oneTimeDeposits: [],
 
-  spendingRule: 'fixed',
+   spendingRule: 'fixed',
+  guardrails: {
+    lowerBand: 0.8,
+    upperBand: 1.2,
+    cutPct: 0.10,
+    raisePct: 0.10,
+  },
+  dieWithZero: {
+    targetAge: 95,
+  },
+
 
   monteCarloEnabled: false
 };
