@@ -1,17 +1,8 @@
 import { IncomeCheckpoint } from '@/types/calculator';
 import { cn } from '@/lib/utils';
 
-type Checkpoint = IncomeCheckpoint & {
-  // New fields (safe: optional so this file compiles even if you haven't updated the type yet)
-  incomeMonthly?: number;            // SS + pension + other (monthly)
-  expensesMonthly?: number;          // total expenses (monthly)
-  gapMonthly?: number;               // income - expenses
-  withdrawalNeededMonthly?: number;  // max(0, -gap)
-  runwayYears?: number | null;       // optional
-};
-
 interface IncomeCheckpointsProps {
-  checkpoints: Checkpoint[];
+  checkpoints: IncomeCheckpoint[];
 }
 
 const formatCurrency = (value: number) => `$${Math.round(value).toLocaleString()}`;
@@ -49,25 +40,21 @@ export function IncomeCheckpoints({ checkpoints }: IncomeCheckpointsProps) {
 
           <tbody>
             {checkpoints.map((c) => {
-              // Backwards-compatible fallbacks:
-              // - If you haven't wired in new fields yet, we’ll treat monthlySpend as expenses (best guess).
-              const incomeMonthly = Number(c.incomeMonthly ?? 0);
-              const expensesMonthly = Number(c.expensesMonthly ?? c.monthlySpend ?? 0);
+              // Existing engine fields (monthly, nominal)
+              const incomeMonthly = (c.ssIncome ?? 0) + (c.otherIncome ?? 0);
+              const expensesMonthly = c.monthlyNeed ?? 0;
 
-              const gapMonthly =
-                c.gapMonthly != null ? Number(c.gapMonthly) : incomeMonthly - expensesMonthly;
+              // Gap (income - expenses). Usually negative pre-SS / high spend years.
+              const gapMonthly = incomeMonthly - expensesMonthly;
 
-              const withdrawalNeededMonthly =
-                c.withdrawalNeededMonthly != null
-                  ? Number(c.withdrawalNeededMonthly)
-                  : Math.max(0, -gapMonthly);
+              // “Withdraw” should reflect what the plan is actually doing (spending rule applied)
+              const withdrawMonthly = Math.max(0, c.fromPortfolio ?? 0);
 
+              // Runway based on current withdrawal rate (only meaningful if withdrawing)
               const runwayYears =
-                c.runwayYears !== undefined
-                  ? c.runwayYears
-                  : withdrawalNeededMonthly > 0 && c.portfolioBalance > 0
-                    ? c.portfolioBalance / (withdrawalNeededMonthly * 12)
-                    : null;
+                withdrawMonthly > 0 && c.portfolioBalance > 0
+                  ? c.portfolioBalance / (withdrawMonthly * 12)
+                  : null;
 
               const gapSign = gapMonthly >= 0 ? '+' : '−';
               const gapAbs = Math.abs(gapMonthly);
@@ -100,16 +87,14 @@ export function IncomeCheckpoints({ checkpoints }: IncomeCheckpointsProps) {
                     {formatCurrency(gapAbs)}/mo
                   </td>
 
-                  <td className="py-3 pr-4" title={annualTip(withdrawalNeededMonthly)}>
-                    {withdrawalNeededMonthly > 0
-                      ? `Withdraw: ${formatCurrency(withdrawalNeededMonthly)}/mo`
+                  <td className="py-3 pr-4" title={annualTip(withdrawMonthly)}>
+                    {withdrawMonthly > 0
+                      ? `Withdraw: ${formatCurrency(withdrawMonthly)}/mo`
                       : 'No withdrawal needed'}
                   </td>
 
                   <td className="py-3 pr-4" title="At current withdrawal rate">
-                    {withdrawalNeededMonthly > 0 && runwayYears != null
-                      ? formatRunway(Number(runwayYears))
-                      : '—'}
+                    {withdrawMonthly > 0 && runwayYears != null ? formatRunway(runwayYears) : '—'}
                   </td>
                 </tr>
               );
@@ -121,20 +106,16 @@ export function IncomeCheckpoints({ checkpoints }: IncomeCheckpointsProps) {
       {/* Mobile cards */}
       <div className="md:hidden space-y-3">
         {checkpoints.map((c) => {
-          const incomeMonthly = Number(c.incomeMonthly ?? 0);
-          const expensesMonthly = Number(c.expensesMonthly ?? c.monthlySpend ?? 0);
+          const incomeMonthly = (c.ssIncome ?? 0) + (c.otherIncome ?? 0);
+          const expensesMonthly = c.monthlyNeed ?? 0;
+          const gapMonthly = incomeMonthly - expensesMonthly;
 
-          const gapMonthly = c.gapMonthly != null ? Number(c.gapMonthly) : incomeMonthly - expensesMonthly;
-
-          const withdrawalNeededMonthly =
-            c.withdrawalNeededMonthly != null ? Number(c.withdrawalNeededMonthly) : Math.max(0, -gapMonthly);
+          const withdrawMonthly = Math.max(0, c.fromPortfolio ?? 0);
 
           const runwayYears =
-            c.runwayYears !== undefined
-              ? c.runwayYears
-              : withdrawalNeededMonthly > 0 && c.portfolioBalance > 0
-                ? c.portfolioBalance / (withdrawalNeededMonthly * 12)
-                : null;
+            withdrawMonthly > 0 && c.portfolioBalance > 0
+              ? c.portfolioBalance / (withdrawMonthly * 12)
+              : null;
 
           const gapSign = gapMonthly >= 0 ? '+' : '−';
           const gapAbs = Math.abs(gapMonthly);
@@ -149,11 +130,14 @@ export function IncomeCheckpoints({ checkpoints }: IncomeCheckpointsProps) {
                 c.stressLevel === 'bad' && 'checkpoint-bad'
               )}
             >
+              {/* Age + label */}
               <div className="text-sm font-medium opacity-80">{c.label}</div>
               <div className="text-2xl font-bold mt-1">Age {c.age}</div>
 
+              {/* Portfolio balance (big) */}
               <div className="mt-3 text-3xl font-semibold">{formatCurrency(c.portfolioBalance)}</div>
 
+              {/* 3 small lines */}
               <div className="mt-3 space-y-1 text-sm opacity-90">
                 <div title={annualTip(incomeMonthly)}>Income: {formatCurrency(incomeMonthly)}/mo</div>
                 <div title={annualTip(expensesMonthly)}>Expenses: {formatCurrency(expensesMonthly)}/mo</div>
@@ -163,16 +147,17 @@ export function IncomeCheckpoints({ checkpoints }: IncomeCheckpointsProps) {
                 </div>
               </div>
 
+              {/* Footer chips */}
               <div className="mt-4 flex flex-wrap gap-2">
-                <span className="px-3 py-1 rounded-full text-xs border" title={annualTip(withdrawalNeededMonthly)}>
-                  {withdrawalNeededMonthly > 0
-                    ? `Withdraw: ${formatCurrency(withdrawalNeededMonthly)}/mo`
+                <span className="px-3 py-1 rounded-full text-xs border" title={annualTip(withdrawMonthly)}>
+                  {withdrawMonthly > 0
+                    ? `Withdraw: ${formatCurrency(withdrawMonthly)}/mo`
                     : 'No withdrawal needed'}
                 </span>
 
-                {withdrawalNeededMonthly > 0 && runwayYears != null && (
+                {withdrawMonthly > 0 && runwayYears != null && (
                   <span className="px-3 py-1 rounded-full text-xs border" title="At current withdrawal rate">
-                    Runway: {formatRunway(Number(runwayYears))}
+                    Runway: {formatRunway(runwayYears)}
                   </span>
                 )}
               </div>
