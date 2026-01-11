@@ -14,37 +14,28 @@ const formatRunway = (years: number) => {
   return `${years.toFixed(1)} yrs`;
 };
 
-// A tiny, no-library “gap bar” so users can quickly compare shrinking/growing gap across ages.
-// We normalize by the max absolute gap across all checkpoints.
-function GapBar({ gapMonthly, maxAbsGap }: { gapMonthly: number; maxAbsGap: number }) {
-  const safeMax = Math.max(1, maxAbsGap);
-  const pct = Math.min(100, Math.round((Math.abs(gapMonthly) / safeMax) * 100));
-
-  // If gapMonthly is negative, it’s “needs portfolio.” If positive, it’s surplus.
-  const isSurplus = gapMonthly >= 0;
+function MetricCell({
+  label,
+  valueMonthly,
+  emphasize = false,
+}: {
+  label: string;
+  valueMonthly: number | string;
+  emphasize?: boolean;
+}) {
+  const isNumber = typeof valueMonthly === 'number';
 
   return (
-    <div className="w-full">
-      <div className="flex items-center justify-between text-xs opacity-75 mb-1">
-        <span>Gap</span>
-        <span title={annualTip(gapMonthly)}>
-          {gapMonthly >= 0 ? '+' : '−'}
-          {formatCurrency(Math.abs(gapMonthly))}/mo
-        </span>
-      </div>
-
-      <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-        <div
-          className={cn(
-            'h-full rounded-full',
-            isSurplus ? 'bg-emerald-400/70' : 'bg-rose-400/70'
-          )}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-
-      <div className="mt-1 text-[11px] opacity-70">
-        {isSurplus ? 'Surplus (no withdrawal needed)' : 'Shortfall (requires withdrawal)'}
+    <div className="min-w-0">
+      <div className="text-[11px] uppercase tracking-wide opacity-70">{label}</div>
+      <div
+        className={cn(
+          'text-sm md:text-[15px] leading-tight',
+          emphasize && 'font-semibold'
+        )}
+        title={isNumber ? annualTip(valueMonthly) : undefined}
+      >
+        {isNumber ? `${formatCurrency(valueMonthly)}/mo` : valueMonthly}
       </div>
     </div>
   );
@@ -53,25 +44,18 @@ function GapBar({ gapMonthly, maxAbsGap }: { gapMonthly: number; maxAbsGap: numb
 export function IncomeCheckpoints({ checkpoints }: IncomeCheckpointsProps) {
   if (!checkpoints?.length) return null;
 
-  // Precompute max gap for visual normalization
-  const maxAbsGap = checkpoints.reduce((acc, c) => {
-    const incomeMonthly = (c.ssIncome ?? 0) + (c.otherIncome ?? 0);
-    const expensesMonthly = c.monthlyNeed ?? 0;
-    const gapMonthly = incomeMonthly - expensesMonthly;
-    return Math.max(acc, Math.abs(gapMonthly));
-  }, 0);
-
   return (
     <div className="glass-card p-4 sm:p-6">
       <h3 className="text-lg font-semibold mb-4">Retirement Income Checkpoints</h3>
 
-      {/* Desktop: cascading list that fills width */}
-      <div className="hidden md:block space-y-4">
+      <div className="space-y-3">
         {checkpoints.map((c) => {
+          // Monthly, nominal
           const incomeMonthly = (c.ssIncome ?? 0) + (c.otherIncome ?? 0);
           const expensesMonthly = c.monthlyNeed ?? 0;
           const gapMonthly = incomeMonthly - expensesMonthly;
 
+          // Use the engine’s actual portfolio withdrawal at that checkpoint
           const withdrawMonthly = Math.max(0, c.fromPortfolio ?? 0);
 
           const runwayYears =
@@ -79,147 +63,133 @@ export function IncomeCheckpoints({ checkpoints }: IncomeCheckpointsProps) {
               ? c.portfolioBalance / (withdrawMonthly * 12)
               : null;
 
+          const gapText =
+            gapMonthly >= 0
+              ? `+${formatCurrency(gapMonthly)}/mo`
+              : `−${formatCurrency(Math.abs(gapMonthly))}/mo`;
+
+          const withdrawText =
+            withdrawMonthly > 0
+              ? `${formatCurrency(withdrawMonthly)}/mo`
+              : 'No withdrawal';
+
+          const runwayText =
+            withdrawMonthly > 0 && runwayYears != null
+              ? formatRunway(runwayYears)
+              : '—';
+
           return (
             <div
               key={`${c.age}-${c.label}`}
               className={cn(
-                'rounded-2xl border p-5',
-                // Fill full width and use a proper two-column grid
-                'grid grid-cols-12 gap-6 items-start',
+                'rounded-2xl border px-4 py-4 md:px-5 md:py-4',
                 c.stressLevel === 'good' && 'checkpoint-good',
                 c.stressLevel === 'warn' && 'checkpoint-warn',
                 c.stressLevel === 'bad' && 'checkpoint-bad'
               )}
             >
-              {/* Left column: label/age/portfolio */}
-              <div className="col-span-5">
-                <div className="text-sm font-medium opacity-80">{c.label}</div>
-                <div className="text-3xl font-bold mt-1">Age {c.age}</div>
-
-                <div className="mt-4 text-4xl font-semibold tracking-tight">
-                  {formatCurrency(c.portfolioBalance)}
+              {/* Row 1: Label | Age | Portfolio (Excel-ish) */}
+              <div className="grid grid-cols-12 items-baseline gap-3">
+                <div className="col-span-12 md:col-span-5 min-w-0">
+                  <div className="text-sm font-medium opacity-80 truncate">{c.label}</div>
                 </div>
 
-                {/* Optional tiny line for status */}
-                <div className="mt-2 text-xs opacity-70">
-                  Status: <span className="capitalize">{c.stressLevel}</span>
+                <div className="col-span-4 md:col-span-2">
+                  <div className="text-[11px] uppercase tracking-wide opacity-70">Age</div>
+                  <div className="text-lg md:text-xl font-semibold">Age {c.age}</div>
+                </div>
+
+                <div className="col-span-8 md:col-span-5 text-right">
+                  <div className="text-[11px] uppercase tracking-wide opacity-70">Portfolio</div>
+                  <div className="text-2xl md:text-3xl font-semibold tracking-tight">
+                    {formatCurrency(c.portfolioBalance)}
+                  </div>
                 </div>
               </div>
 
-              {/* Right column: flows + chips + gap bar */}
-              <div className="col-span-7">
-                {/* 3 small lines */}
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div title={annualTip(incomeMonthly)}>
-                    <div className="opacity-75 text-xs mb-1">Income</div>
-                    <div className="font-medium">{formatCurrency(incomeMonthly)}/mo</div>
+              {/* Divider */}
+              <div className="mt-3 border-t border-white/10" />
+
+              {/* Row 2: Income | Expenses | Gap | Withdraw | Runway */}
+              <div className="mt-3">
+                {/* Desktop: true left-to-right columns */}
+                <div className="hidden md:grid grid-cols-12 gap-4 items-start">
+                  <div className="col-span-2">
+                    <MetricCell label="Income" valueMonthly={incomeMonthly} />
                   </div>
 
-                  <div title={annualTip(expensesMonthly)}>
-                    <div className="opacity-75 text-xs mb-1">Expenses</div>
-                    <div className="font-medium">{formatCurrency(expensesMonthly)}/mo</div>
+                  <div className="col-span-2">
+                    <MetricCell label="Expenses" valueMonthly={expensesMonthly} />
                   </div>
 
-                  <div title={annualTip(gapMonthly)}>
-                    <div className="opacity-75 text-xs mb-1">Gap</div>
-                    <div className="font-medium">
-                      {gapMonthly >= 0 ? '+' : '−'}
-                      {formatCurrency(Math.abs(gapMonthly))}/mo
+                  <div className="col-span-2">
+                    <div className="text-[11px] uppercase tracking-wide opacity-70">Gap</div>
+                    <div
+                      className={cn(
+                        'text-[15px] leading-tight font-semibold',
+                        gapMonthly >= 0 ? 'text-emerald-300' : 'text-rose-300'
+                      )}
+                      title={annualTip(gapMonthly)}
+                    >
+                      {gapText}
+                    </div>
+                  </div>
+
+                  <div className="col-span-3">
+                    <div className="text-[11px] uppercase tracking-wide opacity-70">Withdraw</div>
+                    <div
+                      className="text-[15px] leading-tight"
+                      title={withdrawMonthly > 0 ? annualTip(withdrawMonthly) : undefined}
+                    >
+                      {withdrawMonthly > 0 ? `Withdraw: ${withdrawText}` : withdrawText}
+                    </div>
+                  </div>
+
+                  <div className="col-span-3">
+                    <div className="text-[11px] uppercase tracking-wide opacity-70">Runway</div>
+                    <div className="text-[15px] leading-tight" title="At current withdrawal rate">
+                      {runwayText}
                     </div>
                   </div>
                 </div>
 
-                {/* Visual trend cue */}
-                <div className="mt-4">
-                  <GapBar gapMonthly={gapMonthly} maxAbsGap={maxAbsGap} />
-                </div>
-
-                {/* Footer chips */}
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <span
-                    className="px-3 py-1 rounded-full text-xs border border-white/15 bg-white/5"
-                    title={annualTip(withdrawMonthly)}
-                  >
-                    {withdrawMonthly > 0
-                      ? `Withdraw: ${formatCurrency(withdrawMonthly)}/mo`
-                      : 'No withdrawal needed'}
-                  </span>
-
-                  {withdrawMonthly > 0 && runwayYears != null && (
-                    <span
-                      className="px-3 py-1 rounded-full text-xs border border-white/15 bg-white/5"
-                      title="At current withdrawal rate"
+                {/* Mobile: still left-to-right feeling, but wraps */}
+                <div className="md:hidden grid grid-cols-2 gap-3">
+                  <MetricCell label="Income" valueMonthly={incomeMonthly} />
+                  <MetricCell label="Expenses" valueMonthly={expensesMonthly} />
+                  <div className="col-span-2">
+                    <div className="text-[11px] uppercase tracking-wide opacity-70">Gap</div>
+                    <div
+                      className={cn(
+                        'text-sm font-semibold',
+                        gapMonthly >= 0 ? 'text-emerald-300' : 'text-rose-300'
+                      )}
+                      title={annualTip(gapMonthly)}
                     >
-                      Runway: {formatRunway(runwayYears)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Mobile: keep stacked cards (readable) */}
-      <div className="md:hidden space-y-3">
-        {checkpoints.map((c) => {
-          const incomeMonthly = (c.ssIncome ?? 0) + (c.otherIncome ?? 0);
-          const expensesMonthly = c.monthlyNeed ?? 0;
-          const gapMonthly = incomeMonthly - expensesMonthly;
-
-          const withdrawMonthly = Math.max(0, c.fromPortfolio ?? 0);
-
-          const runwayYears =
-            withdrawMonthly > 0 && c.portfolioBalance > 0
-              ? c.portfolioBalance / (withdrawMonthly * 12)
-              : null;
-
-          return (
-            <div
-              key={`${c.age}-${c.label}`}
-              className={cn(
-                'rounded-2xl p-4 border',
-                c.stressLevel === 'good' && 'checkpoint-good',
-                c.stressLevel === 'warn' && 'checkpoint-warn',
-                c.stressLevel === 'bad' && 'checkpoint-bad'
-              )}
-            >
-              <div className="text-sm font-medium opacity-80">{c.label}</div>
-              <div className="text-2xl font-bold mt-1">Age {c.age}</div>
-
-              <div className="mt-3 text-3xl font-semibold">{formatCurrency(c.portfolioBalance)}</div>
-
-              <div className="mt-3 space-y-1 text-sm opacity-90">
-                <div title={annualTip(incomeMonthly)}>Income: {formatCurrency(incomeMonthly)}/mo</div>
-                <div title={annualTip(expensesMonthly)}>Expenses: {formatCurrency(expensesMonthly)}/mo</div>
-                <div title={annualTip(gapMonthly)}>
-                  Gap: {gapMonthly >= 0 ? '+' : '−'}
-                  {formatCurrency(Math.abs(gapMonthly))}/mo
+                      {gapText}
+                    </div>
+                  </div>
+                  <div className="col-span-2">
+                    <div className="text-[11px] uppercase tracking-wide opacity-70">Withdraw</div>
+                    <div
+                      className="text-sm"
+                      title={withdrawMonthly > 0 ? annualTip(withdrawMonthly) : undefined}
+                    >
+                      {withdrawMonthly > 0 ? `Withdraw: ${withdrawText}` : withdrawText}
+                    </div>
+                  </div>
+                  <div className="col-span-2">
+                    <div className="text-[11px] uppercase tracking-wide opacity-70">Runway</div>
+                    <div className="text-sm" title="At current withdrawal rate">
+                      {runwayText}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-4">
-                <GapBar gapMonthly={gapMonthly} maxAbsGap={maxAbsGap} />
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span
-                  className="px-3 py-1 rounded-full text-xs border border-white/15 bg-white/5"
-                  title={annualTip(withdrawMonthly)}
-                >
-                  {withdrawMonthly > 0
-                    ? `Withdraw: ${formatCurrency(withdrawMonthly)}/mo`
-                    : 'No withdrawal needed'}
-                </span>
-
-                {withdrawMonthly > 0 && runwayYears != null && (
-                  <span
-                    className="px-3 py-1 rounded-full text-xs border border-white/15 bg-white/5"
-                    title="At current withdrawal rate"
-                  >
-                    Runway: {formatRunway(runwayYears)}
-                  </span>
-                )}
+              {/* Optional small status hint (can remove if you want it cleaner) */}
+              <div className="mt-3 text-xs opacity-60">
+                Status: <span className="capitalize">{c.stressLevel}</span>
               </div>
             </div>
           );
