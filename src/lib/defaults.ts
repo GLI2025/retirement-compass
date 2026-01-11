@@ -3,30 +3,31 @@ import { CalculatorInputs } from '@/types/calculator';
 export const DEFAULT_LIFE_EXPECTANCY = 90;
 
 export const DEFAULT_INPUTS: CalculatorInputs = {
+  // Ages
   currentAge: 45,
   retirementAge: 67,
 
   // Spending (today’s dollars)
   monthlyExpenses: 4600,
 
-  // Starting savings + contributions
-  currentSavings: 50000,
+  // Savings (≈10–12% combined for many earners)
+  currentSavings: 75000,
   monthlyContribution: 800,
   employerContribution: 200,
 
-  // Returns via strategy (balanced = 6% nominal in your STRATEGIES)
-  investmentStrategy: 'balanced',
+  // Returns: realistic, believable
+  investmentStrategy: 'balanced', // 6% nominal
 
   // Inflation
   inflationEnabled: true,
   inflationRate: 3.0,
   applyInflationToSS: true,
 
-  // Contribution growth (off by default)
+  // Contribution growth (OFF by default)
   annualIncreaseEnabled: false,
   annualIncreaseRate: 1,
 
-  // Retirement glidepath (off by default)
+  // Retirement glidepath (OFF by default)
   retirementStrategyEnabled: false,
   retirementStrategy: 'moderate',
 
@@ -35,18 +36,18 @@ export const DEFAULT_INPUTS: CalculatorInputs = {
   ssClaimAge: 67,
   ssMonthlyBenefit: 2000,
 
-  // Mortgage payoff toggle (off)
+  // Housing (OFF by default)
   housePayoffEnabled: false,
   housePayoffAge: 65,
   currentMortgagePayment: 2000,
 
-  // Other inputs
+  // Other income / deposits
   otherIncome: [],
   oneTimeDeposits: [],
 
-  // Spending rule (simple default)
+  // Spending strategy (simple, understandable)
   spendingRule: 'fixed',
 
-  // Advanced options
+  // Advanced
   monteCarloEnabled: false,
 };
