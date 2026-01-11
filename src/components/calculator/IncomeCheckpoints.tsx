@@ -7,18 +7,28 @@ interface IncomeCheckpointsProps {
 
 const formatCurrency = (value: number) => `$${Math.round(value).toLocaleString()}`;
 const annualTip = (monthly: number) => `≈ ${formatCurrency(monthly * 12)} / yr`;
-const fmtMonthly = (v: number) => `${formatCurrency(v)}/mo`;
 
-const formatGap = (gapMonthly: number) => {
-  const sign = gapMonthly >= 0 ? '+' : '−';
-  return `${sign}${formatCurrency(Math.abs(gapMonthly))}/mo`;
-};
+function runwayLabel(portfolioBalance: number, withdrawMonthly: number) {
+  // Always return a runway label
+  if (portfolioBalance <= 0) return '0 yrs';
+  if (withdrawMonthly <= 0) return '100+ yrs';
 
-const formatRunway = (years: number) => {
-  if (!Number.isFinite(years) || years <= 0) return '—';
-  if (years >= 99) return '99+ yrs';
+  const years = portfolioBalance / (withdrawMonthly * 12);
+  if (!Number.isFinite(years) || years <= 0) return '0 yrs';
+  if (years >= 100) return '100+ yrs';
   return `${years.toFixed(1)} yrs`;
-};
+}
+
+function normalizeLabel(label: string) {
+  // If label is "At Age 51" it's redundant with the separate Age line, so we’ll just show the label
+  // and suppress the extra Age line below.
+  return label?.trim() || '';
+}
+
+function labelAlreadyContainsAge(label: string, age: number) {
+  const l = (label || '').toLowerCase();
+  return l.includes('age') && l.includes(String(age));
+}
 
 export function IncomeCheckpoints({ checkpoints }: IncomeCheckpointsProps) {
   if (!checkpoints?.length) return null;
@@ -27,134 +37,79 @@ export function IncomeCheckpoints({ checkpoints }: IncomeCheckpointsProps) {
     <div className="glass-card p-4 sm:p-6">
       <h3 className="text-lg font-semibold mb-4">Retirement Income Checkpoints</h3>
 
-      {/* Desktop: real Excel-style table */}
-      <div className="hidden md:block overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="text-left opacity-80">
-            <tr className="border-b border-white/10">
-              <th className="py-2 pr-4">Label</th>
-              <th className="py-2 pr-4">Age</th>
-              <th className="py-2 pr-4 text-right">Portfolio</th>
-              <th className="py-2 pr-4 text-right">Income</th>
-              <th className="py-2 pr-4 text-right">Expenses</th>
-              <th className="py-2 pr-4 text-right">Gap</th>
-              <th className="py-2 pr-4 text-right">Withdraw</th>
-              <th className="py-2 pr-2 text-right">Runway</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {checkpoints.map((c) => {
-              const incomeMonthly = (c.ssIncome ?? 0) + (c.otherIncome ?? 0);
-              const expensesMonthly = c.monthlyNeed ?? 0;
-              const gapMonthly = incomeMonthly - expensesMonthly;
-
-              const withdrawMonthly = Math.max(0, c.fromPortfolio ?? 0);
-              const runwayYears =
-                withdrawMonthly > 0 && c.portfolioBalance > 0
-                  ? c.portfolioBalance / (withdrawMonthly * 12)
-                  : null;
-
-              return (
-                <tr
-                  key={`${c.age}-${c.label}`}
-                  className={cn(
-                    'border-b border-white/5',
-                    'hover:bg-white/5 transition-colors',
-                    c.stressLevel === 'good' && 'checkpoint-good',
-                    c.stressLevel === 'warn' && 'checkpoint-warn',
-                    c.stressLevel === 'bad' && 'checkpoint-bad'
-                  )}
-                >
-                  <td className="py-2 pr-4 font-medium whitespace-nowrap">{c.label}</td>
-                  <td className="py-2 pr-4 whitespace-nowrap">Age {c.age}</td>
-
-                  <td className="py-2 pr-4 text-right font-semibold whitespace-nowrap">
-                    {formatCurrency(c.portfolioBalance)}
-                  </td>
-
-                  <td className="py-2 pr-4 text-right whitespace-nowrap" title={annualTip(incomeMonthly)}>
-                    {fmtMonthly(incomeMonthly)}
-                  </td>
-
-                  <td className="py-2 pr-4 text-right whitespace-nowrap" title={annualTip(expensesMonthly)}>
-                    {fmtMonthly(expensesMonthly)}
-                  </td>
-
-                  <td
-                    className={cn(
-                      'py-2 pr-4 text-right font-semibold whitespace-nowrap',
-                      gapMonthly >= 0 ? 'text-emerald-300' : 'text-rose-300'
-                    )}
-                    title={annualTip(gapMonthly)}
-                  >
-                    {formatGap(gapMonthly)}
-                  </td>
-
-                  <td className="py-2 pr-4 text-right whitespace-nowrap" title={annualTip(withdrawMonthly)}>
-                    {withdrawMonthly > 0 ? fmtMonthly(withdrawMonthly) : '—'}
-                  </td>
-
-                  <td className="py-2 pr-2 text-right whitespace-nowrap" title="At current withdrawal rate">
-                    {withdrawMonthly > 0 && runwayYears != null ? formatRunway(runwayYears) : '—'}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Mobile: compact two-line rows */}
-      <div className="md:hidden space-y-2">
+      <div className="space-y-3">
         {checkpoints.map((c) => {
+          const label = normalizeLabel(c.label);
+
+          // Monthly, nominal
           const incomeMonthly = (c.ssIncome ?? 0) + (c.otherIncome ?? 0);
           const expensesMonthly = c.monthlyNeed ?? 0;
+
+          // Gap = income - expenses
           const gapMonthly = incomeMonthly - expensesMonthly;
 
+          // Actual withdrawal from portfolio (after rule)
           const withdrawMonthly = Math.max(0, c.fromPortfolio ?? 0);
-          const runwayYears =
-            withdrawMonthly > 0 && c.portfolioBalance > 0
-              ? c.portfolioBalance / (withdrawMonthly * 12)
-              : null;
+
+          // Gap semantics (neutral numbers, clear meaning)
+          const isSurplus = gapMonthly >= 0;
+          const gapAbs = Math.abs(gapMonthly);
+
+          const gapLabel = isSurplus ? 'Surplus' : 'Shortfall';
+          const gapExplain = isSurplus ? 'covers spending' : 'from portfolio';
+
+          const showAgeLine = !labelAlreadyContainsAge(label, c.age);
+
+          const runway = runwayLabel(c.portfolioBalance, withdrawMonthly);
 
           return (
             <div
               key={`${c.age}-${c.label}`}
               className={cn(
-                'rounded-xl border border-white/10 px-3 py-2',
+                'rounded-2xl p-4 border border-white/10 bg-white/5',
                 c.stressLevel === 'good' && 'checkpoint-good',
                 c.stressLevel === 'warn' && 'checkpoint-warn',
                 c.stressLevel === 'bad' && 'checkpoint-bad'
               )}
             >
-              <div className="flex items-baseline justify-between gap-3">
+              <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="text-sm font-medium truncate">{c.label}</div>
-                  <div className="text-xs opacity-70">Age {c.age}</div>
+                  <div className="text-sm font-medium opacity-80">{label}</div>
+                  {showAgeLine && (
+                    <div className="text-sm opacity-70">Age {c.age}</div>
+                  )}
                 </div>
-                <div className="text-sm font-semibold whitespace-nowrap">
+
+                <div className="text-lg font-semibold whitespace-nowrap">
                   {formatCurrency(c.portfolioBalance)}
                 </div>
               </div>
 
-              <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs opacity-90">
-                <div title={annualTip(incomeMonthly)}>Income: {fmtMonthly(incomeMonthly)}</div>
-                <div title={annualTip(expensesMonthly)}>Expenses: {fmtMonthly(expensesMonthly)}</div>
+              <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                <div title={annualTip(incomeMonthly)}>
+                  <span className="opacity-75">Income:</span> {formatCurrency(incomeMonthly)}/mo
+                </div>
 
-                <div
-                  className={cn(gapMonthly >= 0 ? 'text-emerald-300' : 'text-rose-300')}
-                  title={annualTip(gapMonthly)}
-                >
-                  Gap: {formatGap(gapMonthly)}
+                <div title={annualTip(expensesMonthly)}>
+                  <span className="opacity-75">Expenses:</span> {formatCurrency(expensesMonthly)}/mo
+                </div>
+
+                {/* Gap: neutral $ value, semantics in label */}
+                <div title={annualTip(gapMonthly)}>
+                  <span className={cn('opacity-75', isSurplus ? 'text-emerald-300' : 'text-amber-300')}>
+                    {gapLabel}:
+                  </span>{' '}
+                  {formatCurrency(gapAbs)}/mo{' '}
+                  <span className="opacity-60">({gapExplain})</span>
                 </div>
 
                 <div title={annualTip(withdrawMonthly)}>
-                  Withdraw: {withdrawMonthly > 0 ? fmtMonthly(withdrawMonthly) : '—'}
+                  <span className="opacity-75">Withdraw:</span>{' '}
+                  {withdrawMonthly > 0 ? `${formatCurrency(withdrawMonthly)}/mo` : 'None'}
                 </div>
 
                 <div className="col-span-2" title="At current withdrawal rate">
-                  Runway: {withdrawMonthly > 0 && runwayYears != null ? formatRunway(runwayYears) : '—'}
+                  <span className="opacity-75">Runway:</span> {runway}
                 </div>
               </div>
             </div>
