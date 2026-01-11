@@ -167,39 +167,4 @@ export interface GuidanceItem {
   value?: string;
 }
 
-// Default values
-export const DEFAULT_INPUTS: CalculatorInputs = {
-  currentAge: 30,
-  retirementAge: 65,
-  monthlyExpenses: 5000,
-  currentSavings: 50000,
-  monthlyContribution: 500,
-  employerContribution: 250,
-  investmentStrategy: 'balanced',
- 
-  inflationEnabled: true,
-  inflationRate: 3.3,
-  applyInflationToSS: true,
 
-  annualIncreaseEnabled: false,
-  annualIncreaseRate: 1,
-
-  retirementStrategyEnabled: false,
-  retirementStrategy: 'moderate',
-
-  ssEnabled: false,
-  ssClaimAge: 67,
-  ssMonthlyBenefit: 2000,
-  housePayoffEnabled: false,
-  housePayoffAge: 65,
-  currentMortgagePayment: 2000,
-
-  otherIncome: [],
-  oneTimeDeposits: [],
-
-   spendingRule: 'fixed',
- 
-
-
-  monteCarloEnabled: false
-};
