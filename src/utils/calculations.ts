@@ -9,7 +9,10 @@ import {
 
 import { applySpendingRule } from '@/lib/calculations/spendingRules';
 
-const LIFE_EXPECTANCY = 95;
+import { DEFAULT_LIFE_EXPECTANCY } from '@/lib/defaults';
+
+const LIFE_EXPECTANCY = DEFAULT_LIFE_EXPECTANCY;
+
 
 // Calculate SS income at a given age
 // SS benefit input is assumed to be in "today's dollars" (real).
