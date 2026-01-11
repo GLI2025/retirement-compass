@@ -1,10 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import { Calculator, Sparkles, Wallet, Activity } from 'lucide-react';
-import {
-  CalculatorInputs,
-  DEFAULT_INPUTS,
-  SpendingRule,
-} from '@/types/calculator';
+import { CalculatorInputs, SpendingRule } from '@/types/calculator';
+import { DEFAULT_INPUTS } from '@/lib/defaults';
 import { calculateRetirement, generateGuidance } from '@/utils/calculations';
 import { StepInput } from './calculator/StepInput';
 import { StrategySelect } from './calculator/StrategySelect';
