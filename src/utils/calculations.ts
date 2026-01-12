@@ -9,7 +9,8 @@ import {
 
 import { applySpendingRule } from '@/lib/calculations/spendingRules';
 
-import { DEFAULT_LIFE_EXPECTANCY } from '@/lib/defaults';
+// 🔧 NEW: import canonical defaults
+import { DEFAULT_INPUTS, DEFAULT_LIFE_EXPECTANCY } from '@/lib/defaults';
 
 const LIFE_EXPECTANCY = DEFAULT_LIFE_EXPECTANCY;
 
@@ -300,9 +301,10 @@ const retirementStartBalance =
   chartData.find(d => d.age === inputs.retirementAge)?.balance ?? balance;
 
 // Compute remaining months from this checkpoint age (annual checkpoints treat month=0)
-const monthsFromNow = (age - inputs.currentAge) * 12;
-const totalMonths = (LIFE_EXPECTANCY - inputs.currentAge) * 12;
-const remainingMonths = Math.max(1, totalMonths - monthsFromNow);
+const monthsFromRetirement = (age - inputs.retirementAge) * 12 + month;
+const totalMonthsFromRetirement = (endAge - inputs.retirementAge) * 12;
+const remainingMonths = Math.max(1, totalMonthsFromRetirement - monthsFromRetirement);
+
 
 const fromPortfolio = applySpendingRule(inputs, {
   age,
@@ -360,9 +362,10 @@ if (inputs.spendingRule === 'die_with_zero') {
 
 // Generate guidance recommendations
 export function generateGuidance(
-  inputs: CalculatorInputs,
+  rawInputs: CalculatorInputs,
   results: CalculatorResults
 ): GuidanceItem[] {
+  const inputs: CalculatorInputs = { ...DEFAULT_INPUTS, ...rawInputs };
   const items: GuidanceItem[] = [];
   
   if (results.isOnTrack) {
@@ -537,9 +540,10 @@ const endAge =
     ? Math.min(targetAge, LIFE_EXPECTANCY)
     : LIFE_EXPECTANCY;
 
-const monthsFromNow = (age - inputs.currentAge) * 12 + month;
-const totalMonths = (endAge - inputs.currentAge) * 12;
-const remainingMonths = Math.max(1, totalMonths - monthsFromNow);
+const monthsFromRetirement = (age - inputs.retirementAge) * 12 + month;
+const totalMonthsFromRetirement = (endAge - inputs.retirementAge) * 12;
+const remainingMonths = Math.max(1, totalMonthsFromRetirement - monthsFromRetirement);
+
 
 
 
@@ -624,7 +628,13 @@ function runMonteCarlo(inputs: CalculatorInputs): MonteCarloResult {
 }
 
 // Main calculation function
-export function calculateRetirement(inputs: CalculatorInputs): CalculatorResults {
+export function calculateRetirement(rawInputs: CalculatorInputs): CalculatorResults {
+  // 🔧 NEW: normalize inputs ONCE
+  const inputs: CalculatorInputs = {
+    ...DEFAULT_INPUTS,
+    ...rawInputs,
+  };
+
   const requiredSavings = calculateRequiredSavings(inputs);
   const projectedAtRetirement = calculateProjectedAtRetirement(inputs);
   const gap = projectedAtRetirement - requiredSavings;
@@ -653,5 +663,4 @@ export function calculateRetirement(inputs: CalculatorInputs): CalculatorResults
     successProbability
   };
 }
-
 
