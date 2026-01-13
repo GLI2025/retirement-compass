@@ -125,41 +125,50 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
         </div>
       </div>
 
-      {/* Second row: Retirement Paycheck (today's dollars) */}
-      <div className="glass-card p-4 sm:p-6">
-        <div className="flex items-center gap-2 mb-3">
-          <Wallet className="w-5 h-5 text-primary" />
-          <div>
-            <h3 className="font-semibold">Retirement Paycheck (today’s dollars)</h3>
-            <p className="text-xs text-muted-foreground">
-              Shown at age {inputs.retirementAge}. Helps you understand “what it will feel like.”
-            </p>
-          </div>
-        </div>
+      {/* Second row: Monthly retirement income (today’s buying power) */}
+<div className="glass-card p-4 sm:p-6">
+  <div className="flex items-center gap-2 mb-3">
+    <Wallet className="w-5 h-5 text-primary" />
+    <div>
+      <h3 className="font-semibold">
+        Your Monthly Retirement Income (today’s buying power)
+      </h3>
+      <p className="text-xs text-muted-foreground">
+        Shown at age {retireCp?.age ?? inputs.retirementAge}. These amounts are expressed in
+        today’s dollars so you can compare them to your current spending.
+      </p>
+    </div>
+  </div>
 
-        <div className="grid gap-4 sm:grid-cols-3 text-center">
-          <div>
-            <div className="text-xs text-muted-foreground">Spending</div>
-            <div className="text-xl font-bold">{formatCurrency(spendingToday)}/mo</div>
-          </div>
-
-          <div>
-            <div className="text-xs text-muted-foreground">Guaranteed income</div>
-            <div className="text-xl font-bold">{formatCurrency(guaranteedToday)}/mo</div>
-          </div>
-
-          <div>
-            <div className="text-xs text-muted-foreground">From portfolio</div>
-            <div className="text-xl font-bold">{formatCurrency(fromPortfolioToday)}/mo</div>
-          </div>
-        </div>
-
-        {!retireCp && (
-          <p className="text-xs text-muted-foreground mt-3">
-            (Note: Retirement checkpoint not found yet. Ensure checkpoints include retirement age.)
-          </p>
-        )}
+  <div className="grid gap-4 sm:grid-cols-3 text-center">
+    <div>
+      <div className="text-xs text-muted-foreground">Monthly spending</div>
+      <div className="text-xl font-bold">
+        {formatCurrency(spendingToday)}/mo
       </div>
     </div>
+
+    <div>
+      <div className="text-xs text-muted-foreground">Income you can count on</div>
+      <div className="text-xl font-bold">
+        {formatCurrency(guaranteedToday)}/mo
+      </div>
+    </div>
+
+    <div>
+      <div className="text-xs text-muted-foreground">Needed from investments</div>
+      <div className="text-xl font-bold">
+        {formatCurrency(fromPortfolioToday)}/mo
+      </div>
+    </div>
+  </div>
+
+  {!retireCp && (
+    <p className="text-xs text-muted-foreground mt-3">
+      (Note: Retirement checkpoint not found yet. Ensure checkpoints include retirement age.)
+    </p>
+  )}
+</div>
+
   );
 }
