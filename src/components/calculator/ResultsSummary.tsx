@@ -1,6 +1,7 @@
 import type { CalculatorInputs, CalculatorResults } from '@/types/calculator';
 import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown, Target, Wallet } from 'lucide-react';
+import { yearsFromNow, toTodayDollars } from '@/utils/money';
 
 interface ResultsSummaryProps {
   results: CalculatorResults;
@@ -31,13 +32,26 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
   // Use the retirement checkpoint for the paycheck breakdown
   const retireCp = checkpoints?.find(c => c.age === inputs.retirementAge);
 
-  // IMPORTANT:
-  // This card is meant to be "today's buying power" throughout retirement.
-  // Your checkpoints are already expressed in the same units the user inputs (today-dollar framing),
-  // so do NOT convert again here (avoids double-inflation / unit mismatch).
-  const spendingToday = retireCp?.monthlyNeed ?? 0;
-  const guaranteedToday = (retireCp?.ssIncome ?? 0) + (retireCp?.otherIncome ?? 0);
-  const fromPortfolioToday = retireCp?.fromPortfolio ?? 0;
+  // Pull NOMINAL values from the checkpoint (these may include inflation when inflationEnabled is true)
+  const spendingNominal = retireCp?.monthlyNeed ?? 0;
+  const guaranteedNominal = (retireCp?.ssIncome ?? 0) + (retireCp?.otherIncome ?? 0);
+  const fromPortfolioNominal = retireCp?.fromPortfolio ?? 0;
+
+  // Convert NOMINAL -> TODAY'S BUYING POWER (real dollars) for the card
+  // NOTE: toTodayDollars expects inflation rate in PERCENT (e.g. 3), not decimal (0.03)
+  const y = yearsFromNow(inputs.currentAge, retireCp?.age ?? inputs.retirementAge);
+
+  const spendingToday = inputs.inflationEnabled
+    ? toTodayDollars(spendingNominal, y, inputs.inflationRate)
+    : spendingNominal;
+
+  const guaranteedToday = inputs.inflationEnabled
+    ? toTodayDollars(guaranteedNominal, y, inputs.inflationRate)
+    : guaranteedNominal;
+
+  const fromPortfolioToday = inputs.inflationEnabled
+    ? toTodayDollars(fromPortfolioNominal, y, inputs.inflationRate)
+    : fromPortfolioNominal;
 
   return (
     <div className="space-y-4">
@@ -102,9 +116,7 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
           {hasMC ? (
             <p className="text-xs text-muted-foreground mt-2">
               Plan held up in <strong>{heldUpCount} / {MC_RUNS}</strong> market scenarios
-              {belowTarget && (
-                <> (below {Math.round(CONFIDENCE_TARGET * 100)}% target)</>
-              )}
+              {belowTarget && <> (below {Math.round(CONFIDENCE_TARGET * 100)}% target)</>}
             </p>
           ) : (
             <p className="text-xs text-muted-foreground mt-2">
@@ -123,8 +135,9 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
               Your Monthly Retirement Income (today’s buying power)
             </h3>
             <p className="text-xs text-muted-foreground">
-              Shown at age {retireCp?.age ?? inputs.retirementAge}. We translate future dollars into
-              today’s buying power, so this stays comparable even as prices rise.
+              Shown at age {retireCp?.age ?? inputs.retirementAge}. If prices rise over time, we
+              convert future dollars back into today’s buying power — so this stays comparable to
+              what you spend now.
             </p>
           </div>
         </div>
@@ -132,23 +145,17 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
         <div className="grid gap-4 sm:grid-cols-3 text-center">
           <div>
             <div className="text-xs text-muted-foreground">Monthly spending</div>
-            <div className="text-xl font-bold">
-              {formatCurrency(spendingToday)}/mo
-            </div>
+            <div className="text-xl font-bold">{formatCurrency(spendingToday)}/mo</div>
           </div>
 
           <div>
             <div className="text-xs text-muted-foreground">Income you can count on</div>
-            <div className="text-xl font-bold">
-              {formatCurrency(guaranteedToday)}/mo
-            </div>
+            <div className="text-xl font-bold">{formatCurrency(guaranteedToday)}/mo</div>
           </div>
 
           <div>
             <div className="text-xs text-muted-foreground">Needed from investments</div>
-            <div className="text-xl font-bold">
-              {formatCurrency(fromPortfolioToday)}/mo
-            </div>
+            <div className="text-xl font-bold">{formatCurrency(fromPortfolioToday)}/mo</div>
           </div>
         </div>
 
