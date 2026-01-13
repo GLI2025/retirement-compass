@@ -61,31 +61,32 @@ function calculateOtherIncome(inputs: CalculatorInputs, age: number): number {
 }
 
 function calculateMonthlyExpenses(inputs: CalculatorInputs, age: number): number {
-  // 1) Start with today's total expenses
+  // A fixed-rate mortgage is a nominal payment: it does NOT inflate.
+  // Lifestyle spending DOES inflate (if enabled).
+
+  // Step A: Lifestyle Base = total expenses - mortgage
   const baseExpenses = inputs.monthlyExpenses ?? 0;
-
-  // 2) Separate the mortgage (which doesn't inflate) from the lifestyle costs (which do)
   const mortgage = inputs.currentMortgagePayment ?? 0;
-  const lifestyleCosts = Math.max(0, baseExpenses - mortgage);
+  const lifestyleBase = Math.max(0, baseExpenses - mortgage);
 
-  // 3) Inflate lifestyle costs (if enabled)
-  let totalExpenses = lifestyleCosts;
+  // Step B: Inflate lifestyle base only
+  let total = lifestyleBase;
   if (inputs.inflationEnabled) {
     const yearsFromNow = Math.max(0, age - inputs.currentAge);
-    totalExpenses =
-      lifestyleCosts * Math.pow(1 + (inputs.inflationRate ?? 0) / 100, yearsFromNow);
+    total = lifestyleBase * Math.pow(1 + (inputs.inflationRate ?? 0) / 100, yearsFromNow);
   }
 
-  // 4) Add mortgage back in ONLY if it's not paid off yet
+  // Step C: Add back the *original* mortgage (non-inflated) only if not paid off yet
   if (inputs.housePayoffEnabled) {
-    if (age < inputs.housePayoffAge) totalExpenses += mortgage;
+    if (age < inputs.housePayoffAge) total += mortgage;
   } else {
-    // If payoff isn't enabled, assume mortgage/rent continues forever
-    totalExpenses += mortgage;
+    // If payoff isn't enabled, assume mortgage/rent continues indefinitely
+    total += mortgage;
   }
 
-  return Math.max(0, totalExpenses);
+  return Math.max(0, total);
 }
+
 
 // ------------------------------
 // Deterministic projection
