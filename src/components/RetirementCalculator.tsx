@@ -497,7 +497,7 @@ export function RetirementCalculator() {
         </div>
 
         {/* Income Checkpoints */}
-        <IncomeCheckpoints checkpoints={results.checkpoints} />
+        <IncomeCheckpoints checkpoints={results.checkpoints} inputs={inputs} />
 
         {/* Guidance Panel */}
         <GuidancePanel items={guidance} isOnTrack={results.isOnTrack} />
