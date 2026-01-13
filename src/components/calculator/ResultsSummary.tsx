@@ -1,7 +1,6 @@
 import type { CalculatorInputs, CalculatorResults } from '@/types/calculator';
 import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown, Target, Wallet } from 'lucide-react';
-import { yearsFromNow, toTodayDollars } from '@/utils/money';
 
 interface ResultsSummaryProps {
   results: CalculatorResults;
@@ -20,13 +19,7 @@ const formatCurrency = (value: number) => {
 };
 
 export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
-  const {
-    requiredSavings,
-    projectedAtRetirement,
-    gap,
-    successProbability,
-    checkpoints
-  } = results;
+  const { requiredSavings, projectedAtRetirement, gap, successProbability, checkpoints } = results;
 
   const isSurplus = gap >= 0;
 
@@ -35,30 +28,16 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
   const heldUpCount = hasMC ? Math.round((successProbability ?? 0) * MC_RUNS) : 0;
   const belowTarget = hasMC ? (successProbability ?? 0) < CONFIDENCE_TARGET : false;
 
-  // Retirement paycheck block (use the retirement checkpoint)
+  // Use the retirement checkpoint for the paycheck breakdown
   const retireCp = checkpoints?.find(c => c.age === inputs.retirementAge);
 
-  // Convert checkpoint values to today’s buying power (only if inflation is enabled)
-  const y = yearsFromNow(inputs.currentAge, inputs.retirementAge);
-
-  const spendingNominal = retireCp?.monthlyNeed ?? 0;
-  const guaranteedNominal = (retireCp?.ssIncome ?? 0) + (retireCp?.otherIncome ?? 0);
-  const fromPortfolioNominal = retireCp?.fromPortfolio ?? 0;
-
-  // IMPORTANT: pass inflation as DECIMAL rate (e.g., 0.03), not percent (3)
-  const infl = (inputs.inflationRate ?? 0) / 100;
-
-  const spendingToday = inputs.inflationEnabled
-    ? toTodayDollars(spendingNominal, y, infl)
-    : spendingNominal;
-
-  const guaranteedToday = inputs.inflationEnabled
-    ? toTodayDollars(guaranteedNominal, y, infl)
-    : guaranteedNominal;
-
-  const fromPortfolioToday = inputs.inflationEnabled
-    ? toTodayDollars(fromPortfolioNominal, y, infl)
-    : fromPortfolioNominal;
+  // IMPORTANT:
+  // This card is meant to be "today's buying power" throughout retirement.
+  // Your checkpoints are already expressed in the same units the user inputs (today-dollar framing),
+  // so do NOT convert again here (avoids double-inflation / unit mismatch).
+  const spendingToday = retireCp?.monthlyNeed ?? 0;
+  const guaranteedToday = (retireCp?.ssIncome ?? 0) + (retireCp?.otherIncome ?? 0);
+  const fromPortfolioToday = retireCp?.fromPortfolio ?? 0;
 
   return (
     <div className="space-y-4">
@@ -144,8 +123,8 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
               Your Monthly Retirement Income (today’s buying power)
             </h3>
             <p className="text-xs text-muted-foreground">
-              Shown at age {retireCp?.age ?? inputs.retirementAge}. These amounts are expressed in
-              today’s dollars so you can compare them to your current spending.
+              Shown at age {retireCp?.age ?? inputs.retirementAge}. We translate future dollars into
+              today’s buying power, so this stays comparable even as prices rise.
             </p>
           </div>
         </div>
