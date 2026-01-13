@@ -4,11 +4,16 @@ export interface SpendingRuleContext {
   age: number;
   monthIndexFromRetirement: number; // 0 at retirement month
   remainingMonths: number;
+
   // balances
   portfolioBalance: number; // nominal dollars at this month
   retirementStartBalance: number; // nominal balance at retirement (reference)
+
   // baseline need
-  baselinePortfolioWithdrawal: number; // nominal: expenses - (SS+pensions+other income), floored at 0
+  baselinePortfolioWithdrawal: number; // nominal: expenses - income, floored at 0
+
+  // NEW (optional): assumed portfolio growth during retirement (monthly, nominal)
+  assumedMonthlyReturn?: number;
 }
 
 // Main entry: returns the withdrawal to take from portfolio this month (nominal)
@@ -32,7 +37,6 @@ export function applySpendingRule(inputs: CalculatorInputs, ctx: SpendingRuleCon
 
     let w = ctx.baselinePortfolioWithdrawal;
 
-    // Simple, pension-friendly: one-step adjustment
     if (ctx.portfolioBalance < lower) w *= (1 - g.cutPct);
     else if (ctx.portfolioBalance > upper) w *= (1 + g.raisePct);
 
@@ -40,12 +44,20 @@ export function applySpendingRule(inputs: CalculatorInputs, ctx: SpendingRuleCon
   }
 
   // die_with_zero
-  // Simulator passes remainingMonths aligned to the plan end age (DWZ target).
-  // We amortize the current balance evenly to reach ~0 by the target age.
-  // This version *protects the plan end date* and may withdraw less than baseline if needed.
-  const remaining = Math.max(1, ctx.remainingMonths);
-  const amortized = ctx.portfolioBalance / remaining;
+  // Goal: spend up (if you can) so the balance trends toward ~0 by the target end month.
+  const n = Math.max(1, ctx.remainingMonths);
+  const r = ctx.assumedMonthlyReturn ?? 0;
 
-  // Withdraw the smaller of baseline need vs. amortized amount (cuts spending if necessary)
-  return Math.max(0, Math.min(ctx.baselinePortfolioWithdrawal, amortized));
+  // Amortization payment that reaches ~0 at month n, assuming constant r
+  // If r ~ 0: payment ≈ B / n
+  // Else: payment = B * r / (1 - (1 + r)^(-n))
+  const B = Math.max(0, ctx.portfolioBalance);
+
+  const amortized =
+    Math.abs(r) < 1e-9
+      ? B / n
+      : (B * r) / (1 - Math.pow(1 + r, -n));
+
+  // DWZ “maximize spending” = at least baseline need, and higher if you can.
+  return Math.max(0, Math.max(ctx.baselinePortfolioWithdrawal, amortized));
 }
