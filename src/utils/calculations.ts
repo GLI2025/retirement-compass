@@ -8,26 +8,28 @@ import {
 } from '@/types/calculator';
 
 import { applySpendingRule } from '@/lib/calculations/spendingRules';
-
-// 🔧 NEW: import canonical defaults
 import { DEFAULT_INPUTS, DEFAULT_LIFE_EXPECTANCY } from '@/lib/defaults';
 
 const LIFE_EXPECTANCY = DEFAULT_LIFE_EXPECTANCY;
+
+// Safety cap so DWZ can't run to absurd ages by accident
+const MAX_END_AGE = 120;
 
 // ------------------------------
 // Helpers
 // ------------------------------
 
 function getEndAge(inputs: CalculatorInputs): number {
-  if (inputs.spendingRule === 'die_with_zero') {
-    const targetAge = inputs.dieWithZero?.targetAge ?? LIFE_EXPECTANCY;
-    // Clamp so we don't end before currentAge or past life expectancy
-    return Math.max(inputs.currentAge, Math.min(targetAge, LIFE_EXPECTANCY));
-  }
-  return LIFE_EXPECTANCY;
+  // Default plan end is LIFE_EXPECTANCY
+  if (inputs.spendingRule !== 'die_with_zero') return LIFE_EXPECTANCY;
+
+  // DWZ should use the user's targetAge as the plan end (even if > LIFE_EXPECTANCY)
+  const targetAge = inputs.dieWithZero?.targetAge ?? LIFE_EXPECTANCY;
+
+  // Clamp to [currentAge, MAX_END_AGE]
+  return Math.max(inputs.currentAge, Math.min(targetAge, MAX_END_AGE));
 }
 
-// Calculate SS income at a given age
 // SS benefit input is assumed to be in "today's dollars" (real).
 // If inflation + COLA are enabled, we convert it to nominal dollars at each future age
 // so it stays comparable to inflated expenses.
@@ -36,7 +38,6 @@ function calculateSSIncome(inputs: CalculatorInputs, age: number): number {
 
   let ssBenefit = inputs.ssMonthlyBenefit ?? 0;
 
-  // Apply COLA: SS grows with inflation every year after currentAge once claiming starts
   if (inputs.applyInflationToSS && inputs.inflationEnabled) {
     const yearsOfCOLA = Math.max(0, age - inputs.currentAge);
     ssBenefit = ssBenefit * Math.pow(1 + (inputs.inflationRate ?? 0) / 100, yearsOfCOLA);
@@ -45,7 +46,6 @@ function calculateSSIncome(inputs: CalculatorInputs, age: number): number {
   return ssBenefit;
 }
 
-// Calculate other income at a given age
 function calculateOtherIncome(inputs: CalculatorInputs, age: number): number {
   const list = inputs.otherIncome ?? [];
   return list.reduce((total, income) => {
@@ -62,26 +62,25 @@ function calculateOtherIncome(inputs: CalculatorInputs, age: number): number {
 }
 
 function calculateMonthlyExpenses(inputs: CalculatorInputs, age: number): number {
-  // A fixed-rate mortgage is a nominal payment: it does NOT inflate.
-  // Lifestyle spending DOES inflate (if enabled).
+  // Fixed-rate mortgage is nominal (does NOT inflate). Lifestyle expenses inflate.
 
-  // Step A: Lifestyle Base = total expenses - mortgage
   const baseExpenses = inputs.monthlyExpenses ?? 0;
   const mortgage = inputs.currentMortgagePayment ?? 0;
+
+  // A) Lifestyle Base = total expenses - mortgage
   const lifestyleBase = Math.max(0, baseExpenses - mortgage);
 
-  // Step B: Inflate lifestyle base only
+  // B) Inflate lifestyle base only
   let total = lifestyleBase;
   if (inputs.inflationEnabled) {
     const yearsFromNow = Math.max(0, age - inputs.currentAge);
     total = lifestyleBase * Math.pow(1 + (inputs.inflationRate ?? 0) / 100, yearsFromNow);
   }
 
-  // Step C: Add back the *original* mortgage (non-inflated) only if not paid off yet
+  // C) Add original mortgage back if still owed
   if (inputs.housePayoffEnabled) {
     if (age < (inputs.housePayoffAge ?? inputs.currentAge)) total += mortgage;
   } else {
-    // If payoff isn't enabled, assume mortgage/rent continues indefinitely
     total += mortgage;
   }
 
@@ -108,7 +107,6 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
   const totalMonthsFromRetirement = Math.max(0, (endAge - inputs.retirementAge) * 12);
 
   for (let age = inputs.currentAge; age <= endAge; age++) {
-    // Add one-time deposits received at this age
     const deposits = (inputs.oneTimeDeposits ?? [])
       .filter(d => d.ageReceived === age)
       .reduce((sum, d) => sum + (d.amount ?? 0), 0);
@@ -117,7 +115,6 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
     data.push({ age, balance: Math.max(0, balance) });
 
     if (age < inputs.retirementAge) {
-      // Accumulation phase
       const annualReturn = strategy.expectedReturn;
       const monthlyReturn = Math.pow(1 + annualReturn, 1 / 12) - 1;
 
@@ -125,12 +122,10 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
         balance = balance * (1 + monthlyReturn) + monthlyContrib;
       }
 
-      // Annual contribution increase
       if (inputs.annualIncreaseEnabled) {
         monthlyContrib = monthlyContrib * (1 + (inputs.annualIncreaseRate ?? 0) / 100);
       }
     } else {
-      // Retirement phase - withdrawals
       if (retirementStartBalance === 0) retirementStartBalance = balance;
 
       const annualReturn = retirementStrategy.expectedReturn;
@@ -144,8 +139,6 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
 
       for (let month = 0; month < 12; month++) {
         const monthIndexFromRetirement = (age - inputs.retirementAge) * 12 + month;
-
-        // remainingMonths is relative to endAge, and aligned to monthIndexFromRetirement
         const remainingMonths = Math.max(1, totalMonthsFromRetirement - monthIndexFromRetirement);
 
         const withdrawalFromPortfolio = applySpendingRule(inputs, {
@@ -157,7 +150,6 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
           baselinePortfolioWithdrawal,
           assumedMonthlyReturn: monthlyReturn
         });
-
 
         balance = balance * (1 + monthlyReturn) - withdrawalFromPortfolio;
         if (balance < 0) balance = 0;
@@ -180,7 +172,6 @@ function calculateRequiredSavings(inputs: CalculatorInputs): number {
     ? STRATEGIES[inputs.retirementStrategy]
     : STRATEGIES[inputs.investmentStrategy];
 
-  // Discount using expectedReturn (nominal if inflation modeling is on)
   const nominalRate = retirementStrategy.expectedReturn;
 
   let totalPV = 0;
@@ -198,7 +189,6 @@ function calculateRequiredSavings(inputs: CalculatorInputs): number {
   return totalPV;
 }
 
-// One-time deposits are added at their received age and grown only once via simulation
 function calculateProjectedAtRetirement(inputs: CalculatorInputs): number {
   const strategy = STRATEGIES[inputs.investmentStrategy];
   const monthlyRate = Math.pow(1 + strategy.expectedReturn, 1 / 12) - 1;
@@ -237,7 +227,6 @@ function getCheckpointAges(inputs: CalculatorInputs): number[] {
   const ages = new Set<number>();
   const endAge = getEndAge(inputs);
 
-  // Anchors
   ages.add(inputs.retirementAge);
   ages.add(62);
   ages.add(65);
@@ -245,16 +234,14 @@ function getCheckpointAges(inputs: CalculatorInputs): number[] {
 
   if (inputs.ssEnabled) ages.add(inputs.ssClaimAge);
 
-  // Plan end anchor (DWZ or longevity)
+  // Plan end anchor
   ages.add(endAge);
 
-  // Spacing after retirement
   const step = inputs.retirementAge < 55 ? 5 : 10;
   for (let age = inputs.retirementAge + step; age <= endAge; age += step) {
     ages.add(age);
   }
 
-  // Hide retirement-style checkpoints before the user's retirement age
   const minCheckpointAge = Math.max(inputs.currentAge, inputs.retirementAge);
 
   return Array.from(ages)
@@ -279,12 +266,17 @@ function labelForAge(inputs: CalculatorInputs, age: number): string {
   return labels.length ? labels.join(' / ') : `At Age ${age}`;
 }
 
-function generateCheckpoints(
-  inputs: CalculatorInputs,
-  chartData: ChartDataPoint[]
-): IncomeCheckpoint[] {
+function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint[]): IncomeCheckpoint[] {
   const ages = getCheckpointAges(inputs);
   const endAge = getEndAge(inputs);
+
+  const retirementStrategy = inputs.retirementStrategyEnabled
+    ? STRATEGIES[inputs.retirementStrategy]
+    : STRATEGIES[inputs.investmentStrategy];
+
+  // Use same assumed monthly return for DWZ card math consistency
+  const assumedMonthlyReturn = Math.pow(1 + retirementStrategy.expectedReturn, 1 / 12) - 1;
+
   const totalMonthsFromRetirement = Math.max(0, (endAge - inputs.retirementAge) * 12);
 
   return ages.map(age => {
@@ -300,7 +292,7 @@ function generateCheckpoints(
     const retirementStartBalance =
       chartData.find(d => d.age === inputs.retirementAge)?.balance ?? balance;
 
-    const monthIndexFromRetirement = (age - inputs.retirementAge) * 12; // annual checkpoints treat month=0
+    const monthIndexFromRetirement = (age - inputs.retirementAge) * 12;
     const remainingMonths = Math.max(1, totalMonthsFromRetirement - monthIndexFromRetirement);
 
     const fromPortfolio = applySpendingRule(inputs, {
@@ -309,7 +301,8 @@ function generateCheckpoints(
       remainingMonths,
       portfolioBalance: balance,
       retirementStartBalance,
-      baselinePortfolioWithdrawal
+      baselinePortfolioWithdrawal,
+      assumedMonthlyReturn
     });
 
     const annualWithdrawal = fromPortfolio * 12;
@@ -323,7 +316,6 @@ function generateCheckpoints(
       status = 'good';
     } else {
       const yearsPast70 = Math.max(0, age - 70);
-
       const warnThreshold = Math.min(0.10, 0.04 + yearsPast70 * 0.001);
       const badThreshold = Math.min(0.12, 0.06 + yearsPast70 * 0.001);
 
@@ -349,10 +341,7 @@ function generateCheckpoints(
 // Guidance
 // ------------------------------
 
-export function generateGuidance(
-  rawInputs: CalculatorInputs,
-  results: CalculatorResults
-): GuidanceItem[] {
+export function generateGuidance(rawInputs: CalculatorInputs, results: CalculatorResults): GuidanceItem[] {
   const inputs: CalculatorInputs = { ...DEFAULT_INPUTS, ...rawInputs };
   const items: GuidanceItem[] = [];
 
@@ -382,7 +371,6 @@ export function generateGuidance(
       value: `+$${Math.round(additionalMonthly).toLocaleString()}/mo`
     });
 
-    // Work longer
     let targetAge = inputs.retirementAge;
     for (let age = inputs.retirementAge + 1; age <= 75; age++) {
       const testInputs = { ...inputs, retirementAge: age };
@@ -441,8 +429,7 @@ function randomStandardNormal(): number {
 
 function sampleLognormalMonthlyReturn(muMonthlyLog: number, sigmaMonthly: number): number {
   const z = randomStandardNormal();
-  const logReturn =
-    (muMonthlyLog - 0.5 * sigmaMonthly * sigmaMonthly) + sigmaMonthly * z;
+  const logReturn = (muMonthlyLog - 0.5 * sigmaMonthly * sigmaMonthly) + sigmaMonthly * z;
   return Math.exp(logReturn) - 1;
 }
 
@@ -476,9 +463,7 @@ function simulatePath(inputs: CalculatorInputs, startingBalance: number): number
     const stockAlloc = currentStrategy.stockAllocation;
     const bondAlloc = currentStrategy.bondAllocation;
 
-    const annualVol = Math.sqrt(
-      stockAlloc ** 2 * stockVol ** 2 + bondAlloc ** 2 * bondVol ** 2
-    );
+    const annualVol = Math.sqrt(stockAlloc ** 2 * stockVol ** 2 + bondAlloc ** 2 * bondVol ** 2);
     const sigmaMonthly = annualVol / Math.sqrt(12);
     const muMonthlyLog = Math.log(1 + currentStrategy.expectedReturn) / 12;
 
@@ -495,19 +480,16 @@ function simulatePath(inputs: CalculatorInputs, startingBalance: number): number
       const monthlyExpenses = calculateMonthlyExpenses(inputs, age);
       const ssIncome = calculateSSIncome(inputs, age);
       const otherIncome = calculateOtherIncome(inputs, age);
-      const baselinePortfolioWithdrawal = Math.max(
-        0,
-        monthlyExpenses - (ssIncome + otherIncome)
-      );
+      const baselinePortfolioWithdrawal = Math.max(0, monthlyExpenses - (ssIncome + otherIncome));
 
       if (retirementStartBalance === 0) retirementStartBalance = balance;
 
+      // Use expected return (not the sampled one) as the amortization assumption
+      const assumedMonthlyReturn = Math.pow(1 + retirementStrategy.expectedReturn, 1 / 12) - 1;
+
       for (let month = 0; month < 12; month++) {
         const monthIndexFromRetirement = (age - inputs.retirementAge) * 12 + month;
-
         const remainingMonths = Math.max(1, totalMonthsFromRetirement - monthIndexFromRetirement);
-
-        const assumedMonthlyReturn = Math.exp(muMonthlyLog) - 1;
 
         const withdrawalFromPortfolio = applySpendingRule(inputs, {
           age,
@@ -518,7 +500,6 @@ function simulatePath(inputs: CalculatorInputs, startingBalance: number): number
           baselinePortfolioWithdrawal,
           assumedMonthlyReturn
         });
-
 
         const monthlyReturn = sampleLognormalMonthlyReturn(muMonthlyLog, sigmaMonthly);
         balance = balance * (1 + monthlyReturn) - withdrawalFromPortfolio;
