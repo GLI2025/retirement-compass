@@ -8,30 +8,27 @@ import {
 
 const concepts = [
   {
-    icon: PiggyBank,
-    title: 'Start Early',
-    description: 'Compound interest is your best friend. Starting 10 years earlier can double your retirement savings.',
-    link: '#currentAge'
+    title: "Time Horizon",
+    description:
+      "How long until you retire (and how long retirement lasts). Change “When do you want to retire?” above to see how extra years amplify compounding and shorten the drawdown period."
   },
   {
-    icon: TrendingUp,
-    title: 'Invest Wisely',
-    description: 'Higher returns come with higher risk. Balance your portfolio based on your timeline.',
-    link: '#strategy'
+    title: "Contributions",
+    description:
+      "What you add each month (plus employer match). Try raising “How much are you saving per month now?” or enable annual contribution increases."
   },
   {
-    icon: Shield,
-    title: 'Inflation Protection',
-    description: 'Your expenses will grow over time. Plan for ~3% annual inflation to maintain purchasing power.',
-    link: '#inflation'
+    title: "Investments & Returns",
+    description:
+      "Expected long-run growth rate. Switch the investment strategy to see how an ongoing return affects the savings required and the retirement drawdown."
   },
   {
-    icon: Clock,
-    title: 'Social Security Timing',
-    description: 'Delaying SS from 62 to 70 can increase benefits by 77%. Consider your health and other income.',
-    link: '#whatif'
+    title: "Expenses",
+    description:
+      "What you’ll spend in retirement. Adjust “How much do you live on per month now?” (we use 80% by default) and optionally turn on inflation to model rising costs."
   }
 ];
+
 
 export function EducationalBox() {
   return (
