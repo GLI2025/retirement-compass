@@ -62,28 +62,34 @@ function calculateMonthlyExpenses(
   inputs: CalculatorInputs,
   age: number
 ): number {
-  let expenses = inputs.monthlyExpenses;
+  // 1. Start with today's total expenses
+  let baseExpenses = inputs.monthlyExpenses;
 
-  // Apply inflation
+  // 2. Separate the mortgage (which doesn't inflate) from the lifestyle costs (which do)
+  // We subtract it from the base so we don't accidentally apply inflation to it.
+  const lifestyleCosts = Math.max(0, baseExpenses - inputs.currentMortgagePayment);
+  
+  let totalExpenses = 0;
+
+  // 3. Inflate the lifestyle costs
   if (inputs.inflationEnabled) {
     const yearsFromNow = age - inputs.currentAge;
-    expenses = expenses * Math.pow(1 + inputs.inflationRate / 100, yearsFromNow);
+    const inflatedLifestyle = lifestyleCosts * Math.pow(1 + inputs.inflationRate / 100, yearsFromNow);
+    totalExpenses = inflatedLifestyle;
+  } else {
+    totalExpenses = lifestyleCosts;
   }
 
-  // Subtract mortgage if paid off (keep units consistent with inflated expenses)
-  if (inputs.housePayoffEnabled && age >= inputs.housePayoffAge) {
-    let mortgageToSubtract = inputs.currentMortgagePayment;
-
-    if (inputs.inflationEnabled) {
-      const yearsFromNow = age - inputs.currentAge;
-      mortgageToSubtract =
-        mortgageToSubtract * Math.pow(1 + inputs.inflationRate / 100, yearsFromNow);
-    }
-
-    expenses -= mortgageToSubtract;
+  // 4. Add the mortgage back in ONLY if it's not paid off yet
+  // Because it's a fixed-rate mortgage, we add the "Today's Dollars" amount (no inflation)
+  if (inputs.housePayoffEnabled && age < inputs.housePayoffAge) {
+    totalExpenses += inputs.currentMortgagePayment;
+  } else if (!inputs.housePayoffEnabled) {
+    // If payoff isn't enabled, assume mortgage/rent continues forever
+    totalExpenses += inputs.currentMortgagePayment;
   }
 
-  return Math.max(0, expenses);
+  return Math.max(0, totalExpenses);
 }
 
 
