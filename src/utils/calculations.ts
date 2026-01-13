@@ -154,8 +154,10 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
           remainingMonths,
           portfolioBalance: balance,
           retirementStartBalance,
-          baselinePortfolioWithdrawal
+          baselinePortfolioWithdrawal,
+          assumedMonthlyReturn: monthlyReturn
         });
+
 
         balance = balance * (1 + monthlyReturn) - withdrawalFromPortfolio;
         if (balance < 0) balance = 0;
@@ -505,14 +507,18 @@ function simulatePath(inputs: CalculatorInputs, startingBalance: number): number
 
         const remainingMonths = Math.max(1, totalMonthsFromRetirement - monthIndexFromRetirement);
 
+        const assumedMonthlyReturn = Math.exp(muMonthlyLog) - 1;
+
         const withdrawalFromPortfolio = applySpendingRule(inputs, {
           age,
           monthIndexFromRetirement,
           remainingMonths,
           portfolioBalance: balance,
           retirementStartBalance,
-          baselinePortfolioWithdrawal
+          baselinePortfolioWithdrawal,
+          assumedMonthlyReturn
         });
+
 
         const monthlyReturn = sampleLognormalMonthlyReturn(muMonthlyLog, sigmaMonthly);
         balance = balance * (1 + monthlyReturn) - withdrawalFromPortfolio;
