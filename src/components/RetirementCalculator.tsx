@@ -68,7 +68,7 @@ export function RetirementCalculator() {
         <div className="container max-w-5xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 mb-6">
             <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium">Smart Retirement Planning</span>
+            <span className="text-sm font-medium">A Starting Place for Retirement Planning</span>
           </div>
 
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
@@ -78,8 +78,8 @@ export function RetirementCalculator() {
           </h1>
 
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Plan your financial future with confidence. Adjust your inputs and see
-            real-time projections of your retirement portfolio.
+            Estimate you financial future potential. Adjust your inputs and see
+            real-time projections of your retirement portfolio. Connect with a Financial professional for advanced views like taxes, extra outcomes, and as a second opinion to risks to any assumptions.
           </p>
         </div>
       </header>
