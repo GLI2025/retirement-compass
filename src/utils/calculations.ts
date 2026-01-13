@@ -253,9 +253,13 @@ function getCheckpointAges(inputs: CalculatorInputs): number[] {
     ages.add(age);
   }
 
-  return Array.from(ages)
-    .filter(age => age >= inputs.currentAge && age <= LIFE_EXPECTANCY)
-    .sort((a, b) => a - b);
+  // Hide retirement-style checkpoints before the user's retirement age
+const minCheckpointAge = Math.max(inputs.currentAge, inputs.retirementAge);
+
+return Array.from(ages)
+  .filter(age => age >= minCheckpointAge && age <= LIFE_EXPECTANCY)
+  .sort((a, b) => a - b);
+
 }
 
 function labelForAge(inputs: CalculatorInputs, age: number): string {
