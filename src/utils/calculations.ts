@@ -19,26 +19,27 @@ const LIFE_EXPECTANCY = DEFAULT_LIFE_EXPECTANCY;
 // ------------------------------
 
 function getEndAge(inputs: CalculatorInputs): number {
-  const targetAge = inputs.dieWithZero?.targetAge ?? LIFE_EXPECTANCY;
-  return inputs.spendingRule === 'die_with_zero'
-    ? Math.min(targetAge, LIFE_EXPECTANCY)
-    : LIFE_EXPECTANCY;
+  if (inputs.spendingRule === 'die_with_zero') {
+    const targetAge = inputs.dieWithZero?.targetAge ?? LIFE_EXPECTANCY;
+    // Clamp so we don't end before currentAge or past life expectancy
+    return Math.max(inputs.currentAge, Math.min(targetAge, LIFE_EXPECTANCY));
+  }
+  return LIFE_EXPECTANCY;
 }
 
 // Calculate SS income at a given age
 // SS benefit input is assumed to be in "today's dollars" (real).
 // If inflation + COLA are enabled, we convert it to nominal dollars at each future age
 // so it stays comparable to inflated expenses.
-// Returns nominal dollars if COLA is enabled (grows with inflation from currentAge)
 function calculateSSIncome(inputs: CalculatorInputs, age: number): number {
   if (!inputs.ssEnabled || age < inputs.ssClaimAge) return 0;
 
-  let ssBenefit = inputs.ssMonthlyBenefit;
+  let ssBenefit = inputs.ssMonthlyBenefit ?? 0;
 
   // Apply COLA: SS grows with inflation every year after currentAge once claiming starts
   if (inputs.applyInflationToSS && inputs.inflationEnabled) {
     const yearsOfCOLA = Math.max(0, age - inputs.currentAge);
-    ssBenefit = ssBenefit * Math.pow(1 + inputs.inflationRate / 100, yearsOfCOLA);
+    ssBenefit = ssBenefit * Math.pow(1 + (inputs.inflationRate ?? 0) / 100, yearsOfCOLA);
   }
 
   return ssBenefit;
@@ -49,10 +50,10 @@ function calculateOtherIncome(inputs: CalculatorInputs, age: number): number {
   const list = inputs.otherIncome ?? [];
   return list.reduce((total, income) => {
     if (age >= income.startAge && (!income.endAge || age <= income.endAge)) {
-      let amount = income.monthlyAmount;
+      let amount = income.monthlyAmount ?? 0;
       if (income.hasCola && inputs.inflationEnabled) {
         const yearsFromNow = Math.max(0, age - inputs.currentAge);
-        amount = amount * Math.pow(1 + inputs.inflationRate / 100, yearsFromNow);
+        amount = amount * Math.pow(1 + (inputs.inflationRate ?? 0) / 100, yearsFromNow);
       }
       return total + amount;
     }
@@ -78,7 +79,7 @@ function calculateMonthlyExpenses(inputs: CalculatorInputs, age: number): number
 
   // Step C: Add back the *original* mortgage (non-inflated) only if not paid off yet
   if (inputs.housePayoffEnabled) {
-    if (age < inputs.housePayoffAge) total += mortgage;
+    if (age < (inputs.housePayoffAge ?? inputs.currentAge)) total += mortgage;
   } else {
     // If payoff isn't enabled, assume mortgage/rent continues indefinitely
     total += mortgage;
@@ -86,7 +87,6 @@ function calculateMonthlyExpenses(inputs: CalculatorInputs, age: number): number
 
   return Math.max(0, total);
 }
-
 
 // ------------------------------
 // Deterministic projection
@@ -100,18 +100,18 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
     ? STRATEGIES[inputs.retirementStrategy]
     : strategy;
 
-  let balance = inputs.currentSavings;
+  let balance = inputs.currentSavings ?? 0;
   let monthlyContrib = (inputs.monthlyContribution ?? 0) + (inputs.employerContribution ?? 0);
   let retirementStartBalance = 0;
 
   const endAge = getEndAge(inputs);
   const totalMonthsFromRetirement = Math.max(0, (endAge - inputs.retirementAge) * 12);
 
-  for (let age = inputs.currentAge; age <= LIFE_EXPECTANCY; age++) {
+  for (let age = inputs.currentAge; age <= endAge; age++) {
     // Add one-time deposits received at this age
     const deposits = (inputs.oneTimeDeposits ?? [])
       .filter(d => d.ageReceived === age)
-      .reduce((sum, d) => sum + d.amount, 0);
+      .reduce((sum, d) => sum + (d.amount ?? 0), 0);
     balance += deposits;
 
     data.push({ age, balance: Math.max(0, balance) });
@@ -145,13 +145,8 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
       for (let month = 0; month < 12; month++) {
         const monthIndexFromRetirement = (age - inputs.retirementAge) * 12 + month;
 
-        // ✅ IMPORTANT FIX:
-        // remainingMonths must be measured from RETIREMENT (not from current age),
-        // because your spendingRules context is monthIndexFromRetirement-based.
-        const remainingMonths = Math.max(
-          1,
-          totalMonthsFromRetirement - monthIndexFromRetirement
-        );
+        // remainingMonths is relative to endAge, and aligned to monthIndexFromRetirement
+        const remainingMonths = Math.max(1, totalMonthsFromRetirement - monthIndexFromRetirement);
 
         const withdrawalFromPortfolio = applySpendingRule(inputs, {
           age,
@@ -176,19 +171,20 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
 // ------------------------------
 
 function calculateRequiredSavings(inputs: CalculatorInputs): number {
-  const retirementYears = LIFE_EXPECTANCY - inputs.retirementAge;
+  const endAge = getEndAge(inputs);
+  const retirementYears = Math.max(0, endAge - inputs.retirementAge);
 
   const retirementStrategy = inputs.retirementStrategyEnabled
     ? STRATEGIES[inputs.retirementStrategy]
     : STRATEGIES[inputs.investmentStrategy];
 
-  // “We discount using expectedReturn. When inflation is enabled, cashflows are nominal.
-  // When inflation is disabled, treat expectedReturn as a real return (today-dollar framework).”
+  // Discount using expectedReturn (nominal if inflation modeling is on)
   const nominalRate = retirementStrategy.expectedReturn;
 
   let totalPV = 0;
   for (let year = 0; year < retirementYears; year++) {
     const age = inputs.retirementAge + year;
+
     const monthlyExpenses = calculateMonthlyExpenses(inputs, age);
     const ssIncome = calculateSSIncome(inputs, age);
     const otherIncome = calculateOtherIncome(inputs, age);
@@ -205,13 +201,13 @@ function calculateProjectedAtRetirement(inputs: CalculatorInputs): number {
   const strategy = STRATEGIES[inputs.investmentStrategy];
   const monthlyRate = Math.pow(1 + strategy.expectedReturn, 1 / 12) - 1;
 
-  let balance = inputs.currentSavings;
+  let balance = inputs.currentSavings ?? 0;
   let monthlyContrib = (inputs.monthlyContribution ?? 0) + (inputs.employerContribution ?? 0);
 
   for (let age = inputs.currentAge; age < inputs.retirementAge; age++) {
     const deposits = (inputs.oneTimeDeposits ?? [])
       .filter(d => d.ageReceived === age)
-      .reduce((sum, d) => sum + d.amount, 0);
+      .reduce((sum, d) => sum + (d.amount ?? 0), 0);
     balance += deposits;
 
     for (let month = 0; month < 12; month++) {
@@ -225,7 +221,7 @@ function calculateProjectedAtRetirement(inputs: CalculatorInputs): number {
 
   const retirementDeposits = (inputs.oneTimeDeposits ?? [])
     .filter(d => d.ageReceived === inputs.retirementAge)
-    .reduce((sum, d) => sum + d.amount, 0);
+    .reduce((sum, d) => sum + (d.amount ?? 0), 0);
   balance += retirementDeposits;
 
   return balance;
@@ -237,6 +233,7 @@ function calculateProjectedAtRetirement(inputs: CalculatorInputs): number {
 
 function getCheckpointAges(inputs: CalculatorInputs): number[] {
   const ages = new Set<number>();
+  const endAge = getEndAge(inputs);
 
   // Anchors
   ages.add(inputs.retirementAge);
@@ -246,31 +243,37 @@ function getCheckpointAges(inputs: CalculatorInputs): number[] {
 
   if (inputs.ssEnabled) ages.add(inputs.ssClaimAge);
 
-  ages.add(LIFE_EXPECTANCY);
+  // Plan end anchor (DWZ or longevity)
+  ages.add(endAge);
 
   // Spacing after retirement
   const step = inputs.retirementAge < 55 ? 5 : 10;
-  for (let age = inputs.retirementAge + step; age <= LIFE_EXPECTANCY; age += step) {
+  for (let age = inputs.retirementAge + step; age <= endAge; age += step) {
     ages.add(age);
   }
 
   // Hide retirement-style checkpoints before the user's retirement age
-const minCheckpointAge = Math.max(inputs.currentAge, inputs.retirementAge);
+  const minCheckpointAge = Math.max(inputs.currentAge, inputs.retirementAge);
 
-return Array.from(ages)
-  .filter(age => age >= minCheckpointAge && age <= LIFE_EXPECTANCY)
-  .sort((a, b) => a - b);
-
+  return Array.from(ages)
+    .filter(age => age >= minCheckpointAge && age <= endAge)
+    .sort((a, b) => a - b);
 }
 
 function labelForAge(inputs: CalculatorInputs, age: number): string {
+  const endAge = getEndAge(inputs);
   const labels: string[] = [];
+
   if (age === inputs.retirementAge) labels.push('At Retirement');
   if (inputs.ssEnabled && age === inputs.ssClaimAge) labels.push('At SS Claim');
   if (age === 62) labels.push('SS Eligible');
   if (age === 65) labels.push('Medicare Age');
   if (age === 70) labels.push('Age 70');
-  if (age === LIFE_EXPECTANCY) labels.push('Longevity Check');
+
+  if (age === endAge) {
+    labels.push(inputs.spendingRule === 'die_with_zero' ? 'Plan End (DWZ Target)' : 'Longevity Check');
+  }
+
   return labels.length ? labels.join(' / ') : `At Age ${age}`;
 }
 
@@ -292,12 +295,10 @@ function generateCheckpoints(
 
     const baselinePortfolioWithdrawal = Math.max(0, monthlyNeed - ssIncome - otherIncome);
 
-    // Reference balance should be the portfolio at retirement in deterministic projection
     const retirementStartBalance =
       chartData.find(d => d.age === inputs.retirementAge)?.balance ?? balance;
 
-    // ✅ FIX: no `month` or `endAge` undefined. Annual checkpoints treat month = 0.
-    const monthIndexFromRetirement = (age - inputs.retirementAge) * 12;
+    const monthIndexFromRetirement = (age - inputs.retirementAge) * 12; // annual checkpoints treat month=0
     const remainingMonths = Math.max(1, totalMonthsFromRetirement - monthIndexFromRetirement);
 
     const fromPortfolio = applySpendingRule(inputs, {
@@ -314,7 +315,6 @@ function generateCheckpoints(
     const withdrawalRate =
       balance > 0 ? annualWithdrawal / balance : (annualWithdrawal > 0 ? 1 : 0);
 
-    // Dynamic stress thresholds
     let status: 'good' | 'warn' | 'bad' = 'good';
 
     if (inputs.spendingRule === 'die_with_zero') {
@@ -364,7 +364,6 @@ export function generateGuidance(
     const gap = Math.abs(results.gap);
     const yearsToRetirement = inputs.retirementAge - inputs.currentAge;
 
-    // Additional monthly savings needed
     const strategy = STRATEGIES[inputs.investmentStrategy];
     const monthlyRate = Math.pow(1 + strategy.expectedReturn, 1 / 12) - 1;
     const months = yearsToRetirement * 12;
@@ -402,11 +401,9 @@ export function generateGuidance(
       });
     }
 
-    // Reduce expenses (rough heuristic)
-    const expenseReduction =
-      (gap /
-        (yearsToRetirement * 12 + (LIFE_EXPECTANCY - inputs.retirementAge) * 12)) *
-      12;
+    const endAge = getEndAge(inputs);
+    const yearsInPlan = Math.max(1, (inputs.retirementAge - inputs.currentAge) + (endAge - inputs.retirementAge));
+    const expenseReduction = (gap / (yearsInPlan * 12)) * 12;
     const percentReduction = (expenseReduction / ((inputs.monthlyExpenses ?? 0) * 12)) * 100;
 
     if (percentReduction < 50) {
@@ -462,10 +459,13 @@ function simulatePath(inputs: CalculatorInputs, startingBalance: number): number
 
   let retirementStartBalance = 0;
 
-  for (let age = inputs.currentAge; age <= LIFE_EXPECTANCY; age++) {
+  const endAge = getEndAge(inputs);
+  const totalMonthsFromRetirement = Math.max(0, (endAge - inputs.retirementAge) * 12);
+
+  for (let age = inputs.currentAge; age <= endAge; age++) {
     const deposits = (inputs.oneTimeDeposits ?? [])
       .filter(d => d.ageReceived === age)
-      .reduce((sum, d) => sum + d.amount, 0);
+      .reduce((sum, d) => sum + (d.amount ?? 0), 0);
     balance += deposits;
 
     balances.push(Math.max(0, balance));
@@ -503,8 +503,6 @@ function simulatePath(inputs: CalculatorInputs, startingBalance: number): number
       for (let month = 0; month < 12; month++) {
         const monthIndexFromRetirement = (age - inputs.retirementAge) * 12 + month;
 
-        const endAge = getEndAge(inputs);
-        const totalMonthsFromRetirement = (endAge - inputs.retirementAge) * 12;
         const remainingMonths = Math.max(1, totalMonthsFromRetirement - monthIndexFromRetirement);
 
         const withdrawalFromPortfolio = applySpendingRule(inputs, {
@@ -527,16 +525,18 @@ function simulatePath(inputs: CalculatorInputs, startingBalance: number): number
 }
 
 function runMonteCarlo(inputs: CalculatorInputs): MonteCarloResult {
+  const endAge = getEndAge(inputs);
+
   const ages: number[] = [];
-  for (let age = inputs.currentAge; age <= LIFE_EXPECTANCY; age++) ages.push(age);
+  for (let age = inputs.currentAge; age <= endAge; age++) ages.push(age);
 
   const allPaths: number[][] = [];
   for (let i = 0; i < MONTE_CARLO_RUNS; i++) {
-    allPaths.push(simulatePath(inputs, inputs.currentSavings));
+    allPaths.push(simulatePath(inputs, inputs.currentSavings ?? 0));
   }
 
   const chartData: ChartDataPoint[] = ages.map((age, idx) => {
-    const balancesAtAge = allPaths.map(path => path[idx]).sort((a, b) => a - b);
+    const balancesAtAge = allPaths.map(path => path[idx] ?? 0).sort((a, b) => a - b);
     return {
       age,
       balance: balancesAtAge[Math.floor(MONTE_CARLO_RUNS * 0.5)],
@@ -548,13 +548,13 @@ function runMonteCarlo(inputs: CalculatorInputs): MonteCarloResult {
     };
   });
 
-  const finalBalances = allPaths.map(path => path[path.length - 1]);
+  const finalBalances = allPaths.map(path => path[path.length - 1] ?? 0);
   const successCount = finalBalances.filter(b => b > 0).length;
   const successProbability = successCount / MONTE_CARLO_RUNS;
 
-  let low = inputs.currentSavings * 0.5;
-  let high = inputs.currentSavings * 3;
-  let requiredForSuccess = inputs.currentSavings;
+  let low = (inputs.currentSavings ?? 0) * 0.5;
+  let high = (inputs.currentSavings ?? 0) * 3;
+  let requiredForSuccess = inputs.currentSavings ?? 0;
 
   for (let iter = 0; iter < 10; iter++) {
     const mid = (low + high) / 2;
@@ -562,7 +562,7 @@ function runMonteCarlo(inputs: CalculatorInputs): MonteCarloResult {
 
     for (let i = 0; i < 200; i++) {
       const path = simulatePath(inputs, mid);
-      if (path[path.length - 1] > 0) successes++;
+      if ((path[path.length - 1] ?? 0) > 0) successes++;
     }
 
     if (successes / 200 >= 0.85) {
@@ -581,7 +581,6 @@ function runMonteCarlo(inputs: CalculatorInputs): MonteCarloResult {
 // ------------------------------
 
 export function calculateRetirement(rawInputs: CalculatorInputs): CalculatorResults {
-  // 🔧 normalize inputs ONCE
   const inputs: CalculatorInputs = {
     ...DEFAULT_INPUTS,
     ...rawInputs
