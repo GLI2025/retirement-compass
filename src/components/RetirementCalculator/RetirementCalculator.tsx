@@ -1,10 +1,11 @@
 import { useState, useMemo, useRef } from 'react';
-import { Calculator, Sparkles, Wallet, Activity } from 'lucide-react';
+import { Calculator, Sparkles, Activity } from 'lucide-react';
 import { CalculatorInputs, SpendingRule } from '@/types/calculator';
 import { DEFAULT_INPUTS } from '@/lib/defaults';
 import { calculateRetirement, generateGuidance } from '@/utils/calculations';
 import { CalculatorHeader } from "./sections/CalculatorHeader";
 import { YourInformationSection } from "./sections/YourInformationSection";
+import { OtherIncomeSourcesSection } from "./sections/OtherIncomeSourcesSection";
 
 import { StepInput } from "../calculator/StepInput";
 import { StrategySelect } from "../calculator/StrategySelect";
@@ -97,26 +98,8 @@ export function RetirementCalculator() {
 
 
         {/* Other Income Sources */}
-        <section id="otherIncome" className="glass-card p-4 sm:p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Wallet className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-semibold">Other Income Sources</h2>
-          </div>
+        <OtherIncomeSourcesSection inputs={inputs} updateInput={updateInput} />
 
-          <p className="text-sm text-muted-foreground mb-4">
-            Add any additional income you expect during retirement — especially a pension.
-            <span className="block mt-2">
-              <strong>Pension tip:</strong> Add your pension starting at your retirement age.
-              Turn COLA on only if your pension increases over time.
-            </span>
-          </p>
-
-          <OtherIncomeSection
-            incomes={inputs.otherIncome}
-            onChange={(incomes) => updateInput('otherIncome', incomes)}
-            currentAge={inputs.currentAge}
-          />
-        </section>
 
         {/* Advanced Options */}
         <section id="inflation" className="space-y-4">
