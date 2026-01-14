@@ -1,11 +1,15 @@
 import { useState, useMemo, useRef } from 'react';
-import { Calculator, Sparkles, Activity } from 'lucide-react';
-import { CalculatorInputs, SpendingRule } from '@/types/calculator';
+import { Sparkles, Activity } from 'lucide-react';
+import { CalculatorInputs } from '@/types/calculator';
+
 import { DEFAULT_INPUTS } from '@/lib/defaults';
 import { calculateRetirement, generateGuidance } from '@/utils/calculations';
-import { CalculatorHeader } from "./sections/CalculatorHeader";
-import { YourInformationSection } from "./sections/YourInformationSection";
 import { OtherIncomeSourcesSection } from "./sections/OtherIncomeSourcesSection";
+
+import { YourInformationSection } from "./sections/YourInformationSection";
+
+import { InflationOptionSection } from "./sections/InflationOptionSection";
+import { SpendingRuleSection } from "./sections/SpendingRuleSection";
 
 import { StepInput } from "../calculator/StepInput";
 import { StrategySelect } from "../calculator/StrategySelect";
@@ -16,7 +20,7 @@ import { GuidancePanel } from "../calculator/GuidancePanel";
 import { EducationalBox } from "../calculator/EducationalBox";
 import { ResultsSummary } from "../calculator/ResultsSummary";
 import { ResetButtons } from "../calculator/ResetButtons";
-import { OtherIncomeSection } from "../calculator/OtherIncomeSection";
+
 import { ExportPDFButton } from "../calculator/ExportPDFButton";
 
 
@@ -101,136 +105,14 @@ export function RetirementCalculator() {
         <OtherIncomeSourcesSection inputs={inputs} updateInput={updateInput} />
 
 
-        {/* Advanced Options */}
+       {/* Advanced Options */}
         <section id="inflation" className="space-y-4">
           <h2 className="text-lg font-semibold">Advanced Options</h2>
-
-          {/* Inflation toggle */}
-          <ToggleOption
-            label="Account for Inflation"
-            description="Adjust projections for rising costs over time"
-            enabled={inputs.inflationEnabled}
-            onToggle={(v) => updateInput('inflationEnabled', v)}
-          >
-            <StepInput
-              label="Inflation Rate"
-              value={inputs.inflationRate}
-              onChange={(v) => updateInput('inflationRate', v)}
-              helperText="If expenses are entered in today’s dollars, inflation will scale them automatically."
-              min={0}
-              max={10}
-              step={0.1}
-              suffix="%"
-            />
-          </ToggleOption>
-
-          {/* ✅ Spending rules OUTSIDE the inflation toggle */}
-          <div className="glass-card p-4 sm:p-6 space-y-4">
-            <div>
-              <h3 className="text-base font-semibold">Spending Rule (Post-Retirement)</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                This controls how withdrawals from your portfolio adjust after retirement.
-                Fixed is the default.
-              </p>
-            </div>
-
-            {/* Rule selector */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Spending Rule</label>
-                <select
-                  className="w-full h-10 rounded-md border border-border bg-background px-3 text-sm"
-                  value={inputs.spendingRule}
-                  onChange={(e) => {
-                    const rule = e.target.value as SpendingRule;
-
-                    updateInput('spendingRule', rule);
-
-                    // Ensure defaults exist when switching
-                    if (rule === 'guardrails' && !inputs.guardrails) {
-                      updateInput('guardrails', {
-                        lowerBand: 0.8,
-                        upperBand: 1.2,
-                        cutPct: 0.1,
-                        raisePct: 0.1,
-                      });
-                    }
-
-                    if (rule === 'die_with_zero' && !inputs.dieWithZero) {
-                      updateInput('dieWithZero', { targetAge: 95 });
-                    }
-                  }}
-                >
-                  <option value="fixed">Fixed spending (default)</option>
-                  <option value="guardrails">Guardrails</option>
-                  <option value="die_with_zero">Die With Zero</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Guardrails config */}
-            {inputs.spendingRule === 'guardrails' && inputs.guardrails && (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <StepInput
-                  label="Lower Band (0.80 = 80%)"
-                  value={inputs.guardrails.lowerBand}
-                  onChange={(v) =>
-                    updateInput('guardrails', { ...inputs.guardrails!, lowerBand: v })
-                  }
-                  min={0.1}
-                  max={1.0}
-                  step={0.01}
-                />
-                <StepInput
-                  label="Upper Band (1.20 = 120%)"
-                  value={inputs.guardrails.upperBand}
-                  onChange={(v) =>
-                    updateInput('guardrails', { ...inputs.guardrails!, upperBand: v })
-                  }
-                  min={1.0}
-                  max={3.0}
-                  step={0.01}
-                />
-                <StepInput
-                  label="Cut % (0.10 = 10%)"
-                  value={inputs.guardrails.cutPct}
-                  onChange={(v) =>
-                    updateInput('guardrails', { ...inputs.guardrails!, cutPct: v })
-                  }
-                  min={0}
-                  max={0.5}
-                  step={0.01}
-                />
-                <StepInput
-                  label="Raise % (0.10 = 10%)"
-                  value={inputs.guardrails.raisePct}
-                  onChange={(v) =>
-                    updateInput('guardrails', { ...inputs.guardrails!, raisePct: v })
-                  }
-                  min={0}
-                  max={0.5}
-                  step={0.01}
-                />
-              </div>
-            )}
-
-            {/* Die With Zero config */}
-            {inputs.spendingRule === 'die_with_zero' && inputs.dieWithZero && (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <StepInput
-                  label="Target Age (spend down to ~$0)"
-                  value={inputs.dieWithZero.targetAge}
-                  onChange={(v) =>
-                    updateInput('dieWithZero', { ...inputs.dieWithZero!, targetAge: v })
-                  }
-                  min={inputs.retirementAge}
-                  max={100}
-                  step={1}
-                />
-              </div>
-            )}
-          </div>
+        
+          <InflationOptionSection inputs={inputs} updateInput={updateInput} />
+          <SpendingRuleSection inputs={inputs} updateInput={updateInput} />
         </section>
+
 
         {/* What-If Scenarios */}
         <section id="whatif" className="space-y-4">
