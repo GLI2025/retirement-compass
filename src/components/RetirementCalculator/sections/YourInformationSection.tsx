@@ -55,4 +55,38 @@ export function YourInformationSection({ inputs, updateInput }: Props) {
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <StepInput
-          label="Tot
+          label="Total Retirement Savings"
+          value={inputs.currentSavings}
+          onChange={(v) => updateInput("currentSavings", v)}
+          helperText="This is the total amount you already have saved for retirement. Monthly savings are entered separately below."
+          min={0}
+          step={1000}
+          prefix="$"
+          tooltip="Many use this amount as a bridge before a pension or SS begin."
+        />
+
+        <StepInput
+          label="Monthly Contribution"
+          value={inputs.monthlyContribution}
+          onChange={(v) => updateInput("monthlyContribution", v)}
+          helperText="If you stop working at retirement, contributions usually drop to $0."
+          min={0}
+          step={50}
+          prefix="$"
+          tooltip="Your monthly retirement savings"
+        />
+
+        <StepInput
+          label="Employer Match"
+          value={inputs.employerContribution}
+          onChange={(v) => updateInput("employerContribution", v)}
+          helperText="Employer contributions typically stop once you leave your job."
+          min={0}
+          step={50}
+          prefix="$"
+          tooltip="Monthly employer contribution"
+        />
+      </div>
+    </section>
+  );
+}
