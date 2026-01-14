@@ -4,17 +4,18 @@ import { CalculatorInputs, SpendingRule } from '@/types/calculator';
 import { DEFAULT_INPUTS } from '@/lib/defaults';
 import { calculateRetirement, generateGuidance } from '@/utils/calculations';
 import { CalculatorHeader } from "./sections/CalculatorHeader";
-import { StepInput } from './calculator/StepInput';
-import { StrategySelect } from './calculator/StrategySelect';
-import { ToggleOption } from './calculator/ToggleOption';
-import { PortfolioChart } from './calculator/PortfolioChart';
-import { IncomeCheckpoints } from './calculator/IncomeCheckpoints';
-import { GuidancePanel } from './calculator/GuidancePanel';
-import { EducationalBox } from './calculator/EducationalBox';
-import { ResultsSummary } from './calculator/ResultsSummary';
-import { ResetButtons } from './calculator/ResetButtons';
-import { OtherIncomeSection } from './calculator/OtherIncomeSection';
-import { ExportPDFButton } from './calculator/ExportPDFButton';
+import { StepInput } from "../calculator/StepInput";
+import { StrategySelect } from "../calculator/StrategySelect";
+import { ToggleOption } from "../calculator/ToggleOption";
+import { PortfolioChart } from "../calculator/PortfolioChart";
+import { IncomeCheckpoints } from "../calculator/IncomeCheckpoints";
+import { GuidancePanel } from "../calculator/GuidancePanel";
+import { EducationalBox } from "../calculator/EducationalBox";
+import { ResultsSummary } from "../calculator/ResultsSummary";
+import { ResetButtons } from "../calculator/ResetButtons";
+import { OtherIncomeSection } from "../calculator/OtherIncomeSection";
+import { ExportPDFButton } from "../calculator/ExportPDFButton";
+
 
 export function RetirementCalculator() {
   const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_INPUTS);
