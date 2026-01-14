@@ -3,6 +3,7 @@ import { Calculator, Sparkles, Wallet, Activity } from 'lucide-react';
 import { CalculatorInputs, SpendingRule } from '@/types/calculator';
 import { DEFAULT_INPUTS } from '@/lib/defaults';
 import { calculateRetirement, generateGuidance } from '@/utils/calculations';
+import { CalculatorHeader } from "./sections/CalculatorHeader";
 import { StepInput } from './calculator/StepInput';
 import { StrategySelect } from './calculator/StrategySelect';
 import { ToggleOption } from './calculator/ToggleOption';
