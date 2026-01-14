@@ -1,4 +1,5 @@
-import { RetirementCalculator } from '@/components/RetirementCalculator';
+import { RetirementCalculator } from "@/components/RetirementCalculator/RetirementCalculator";
+
 
 const Index = () => {
   return <RetirementCalculator />;
