@@ -146,6 +146,13 @@ export interface IncomeCheckpoint {
   portfolioBalance: number;
   withdrawalRate: number;
   stressLevel: 'good' | 'warn' | 'bad';
+
+  // new guardrails detail
+  targetWithdrawalRate?: number;
+  currentBaselineWithdrawalRate?: number;
+  lowerGuardrailRate?: number;
+  upperGuardrailRate?: number;
+  guardrailAction?: 'raise' | 'cut' | 'none';
 }
 
 // Calculation results
