@@ -280,62 +280,103 @@ function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint
   const totalMonthsFromRetirement = Math.max(0, (endAge - inputs.retirementAge) * 12);
 
   return ages.map(age => {
-    const dataPoint = chartData.find(d => d.age === age);
-    const balance = dataPoint?.balance ?? 0;
+  const dataPoint = chartData.find(d => d.age === age);
+  const balance = dataPoint?.balance ?? 0;
 
-    const monthlyNeed = calculateMonthlyExpenses(inputs, age);
-    const ssIncome = calculateSSIncome(inputs, age);
-    const otherIncome = calculateOtherIncome(inputs, age);
+  const monthlyNeed = calculateMonthlyExpenses(inputs, age);
+  const ssIncome = calculateSSIncome(inputs, age);
+  const otherIncome = calculateOtherIncome(inputs, age);
 
-    const baselinePortfolioWithdrawal = Math.max(0, monthlyNeed - ssIncome - otherIncome);
+  const baselinePortfolioWithdrawal = Math.max(0, monthlyNeed - ssIncome - otherIncome);
 
-    const retirementStartBalance =
-      chartData.find(d => d.age === inputs.retirementAge)?.balance ?? balance;
+  const retirementStartBalance =
+    chartData.find(d => d.age === inputs.retirementAge)?.balance ?? balance;
 
-    const monthIndexFromRetirement = (age - inputs.retirementAge) * 12;
-    const remainingMonths = Math.max(1, totalMonthsFromRetirement - monthIndexFromRetirement);
+  const monthIndexFromRetirement = (age - inputs.retirementAge) * 12;
+  const remainingMonths = Math.max(1, totalMonthsFromRetirement - monthIndexFromRetirement);
 
-    const fromPortfolio = applySpendingRule(inputs, {
-      age,
-      monthIndexFromRetirement,
-      remainingMonths,
-      portfolioBalance: balance,
-      retirementStartBalance,
-      baselinePortfolioWithdrawal,
-      assumedMonthlyReturn
-    });
+  const fromPortfolio = applySpendingRule(inputs, {
+    age,
+    monthIndexFromRetirement,
+    remainingMonths,
+    portfolioBalance: balance,
+    retirementStartBalance,
+    baselinePortfolioWithdrawal,
+    assumedMonthlyReturn
+  });
 
-    const annualWithdrawal = fromPortfolio * 12;
+  const annualBaselineWithdrawal = baselinePortfolioWithdrawal * 12;
+  const annualActualWithdrawal = fromPortfolio * 12;
 
-    const withdrawalRate =
-      balance > 0 ? annualWithdrawal / balance : (annualWithdrawal > 0 ? 1 : 0);
+  const targetWithdrawalRate =
+    retirementStartBalance > 0
+      ? annualBaselineWithdrawal / retirementStartBalance
+      : (annualBaselineWithdrawal > 0 ? Infinity : 0);
 
-    let status: 'good' | 'warn' | 'bad' = 'good';
+  const currentBaselineWithdrawalRate =
+    balance > 0
+      ? annualBaselineWithdrawal / balance
+      : (annualBaselineWithdrawal > 0 ? Infinity : 0);
 
-    if (inputs.spendingRule === 'die_with_zero') {
+  const actualWithdrawalRate =
+    balance > 0
+      ? annualActualWithdrawal / balance
+      : (annualActualWithdrawal > 0 ? Infinity : 0);
+
+  let status: 'good' | 'warn' | 'bad' = 'good';
+  let lowerGuardrailRate: number | undefined;
+  let upperGuardrailRate: number | undefined;
+  let guardrailAction: 'raise' | 'cut' | 'none' = 'none';
+
+  if (inputs.spendingRule === 'guardrails') {
+    const g = inputs.guardrails ?? {
+      lowerBand: 0.75,
+      upperBand: 1.15,
+      cutPct: 0.10,
+      raisePct: 0.10
+    };
+
+    lowerGuardrailRate = targetWithdrawalRate * g.lowerBand;
+    upperGuardrailRate = targetWithdrawalRate * g.upperBand;
+
+    if (currentBaselineWithdrawalRate > upperGuardrailRate) {
+      guardrailAction = 'cut';
+      status = 'bad';
+    } else if (currentBaselineWithdrawalRate < lowerGuardrailRate) {
+      guardrailAction = 'raise';
       status = 'good';
     } else {
-      const yearsPast70 = Math.max(0, age - 70);
-      const warnThreshold = Math.min(0.10, 0.04 + yearsPast70 * 0.001);
-      const badThreshold = Math.min(0.12, 0.06 + yearsPast70 * 0.001);
-
-      if (withdrawalRate >= badThreshold) status = 'bad';
-      else if (withdrawalRate >= warnThreshold) status = 'warn';
+      guardrailAction = 'none';
+      status = 'warn';
     }
+  } else if (inputs.spendingRule === 'die_with_zero') {
+    status = 'good';
+  } else {
+    const yearsPast70 = Math.max(0, age - 70);
+    const warnThreshold = Math.min(0.10, 0.04 + yearsPast70 * 0.001);
+    const badThreshold = Math.min(0.12, 0.06 + yearsPast70 * 0.001);
 
-    return {
-      age,
-      label: labelForAge(inputs, age),
-      monthlyNeed,
-      ssIncome,
-      otherIncome,
-      fromPortfolio,
-      portfolioBalance: balance,
-      withdrawalRate,
-      stressLevel: status
-    };
-  });
-}
+    if (actualWithdrawalRate >= badThreshold) status = 'bad';
+    else if (actualWithdrawalRate >= warnThreshold) status = 'warn';
+  }
+
+  return {
+    age,
+    label: labelForAge(inputs, age),
+    monthlyNeed,
+    ssIncome,
+    otherIncome,
+    fromPortfolio,
+    portfolioBalance: balance,
+    withdrawalRate: actualWithdrawalRate,
+    stressLevel: status,
+    targetWithdrawalRate,
+    currentBaselineWithdrawalRate,
+    lowerGuardrailRate,
+    upperGuardrailRate,
+    guardrailAction
+  };
+});
 
 // ------------------------------
 // Guidance
