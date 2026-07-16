@@ -377,7 +377,7 @@ function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint
     guardrailAction
   };
 });
-
+}
 // ------------------------------
 // Guidance
 // ------------------------------
