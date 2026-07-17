@@ -128,16 +128,11 @@ function runPath_TOTAL(p: BasePathParams, randFactory: RandFactory, rails: Rails
 
     const P_t = incomeAt(t, incomes, cpi);
     const Wt = Math.max(0, S - P_t);
-
-    // A zero portfolio is still successful when guaranteed income fully covers spending.
-    // Fail only when the portfolio cannot fund the required withdrawal.
-    if (Wt > PV) {
-      return { success: false, finalPV: 0, vol: welfordStd(returnsVar), mdd: minDD };
-    }
     PV -= Wt;
+    if (PV <= 0) return { success: false, finalPV: 0, vol: welfordStd(returnsVar), mdd: minDD };
 
     const r = genReturn(rand);
-    if (PV > 0) PV *= 1 + r;
+    PV *= 1 + r;
 
     welfordAdd(returnsVar, r);
     if (PV > peak) peak = PV;
@@ -161,9 +156,9 @@ function probe_TOTAL(
     for (let t = 0; t < T; t++) {
       const P_t = incomeAt(t, incomes, cpi);
       const Wt = Math.max(0, S - P_t);
-      if (Wt > PV) { alive = false; break; }
       PV -= Wt;
-      if (PV > 0) PV *= 1 + genReturn(rand);
+      if (PV <= 0) { alive = false; break; }
+      PV *= 1 + genReturn(rand);
     }
     if (alive) ok++;
   }
@@ -171,26 +166,16 @@ function probe_TOTAL(
 }
 
 function findPV_TOTAL(base: BasePathParams, S0: number, target: number, randFactory: RandFactory): number {
-  const estimate = (pv: number): number => {
-    const trial = { ...base, PV: pv, S0 };
+  let lo = 50_000, hi = 5_000_000, best = base.PV;
+  for (let it = 0; it < 22; it++) {
+    const mid = (lo + hi) >> 1;
+    const trial = { ...base, PV: mid, S0 };
     const res: PathResult[] = [];
     for (let i = 0; i < 300; i++) res.push(runPath_TOTAL(trial, randFactory, null));
-    return successRate(res);
-  };
-
-  // Guaranteed income may fully cover the spending target even with no portfolio.
-  if (estimate(0) >= target) return 0;
-
-  let lo = 0, hi = 5_000_000, best = hi;
-  for (let it = 0; it < 22; it++) {
-    const mid = Math.floor((lo + hi) / 2);
-    const q = estimate(mid);
-    if (q >= target) {
-      best = mid;
-      hi = mid;
-    } else {
-      lo = mid + 1;
-    }
+    const q = successRate(res);
+    best = mid;
+    if (Math.abs(q - target) < 0.02) return mid;
+    q > target ? (hi = mid) : (lo = mid);
   }
   return best;
 }
@@ -303,7 +288,7 @@ function findW_LEGACY(
 function pvForTargetIncome_TOTAL(
   base: BasePathParams, targetIncome: number, randFactory: RandFactory
 ): { pv: number; income80: number } {
-  let lo = 0, hi = 5_000_000, ans = hi;
+  let lo = 50_000, hi = 5_000_000, ans = hi;
   for (let it = 0; it < 22; it++) {
     const mid = (lo + hi) >> 1;
     const s80 = findS_TOTAL(mid, { ...base }, UPPER_RESET, randFactory);
@@ -400,9 +385,7 @@ export function calculateGuardrails(inputs: GuardrailsInputs): GuardrailsResults
   if (c.engine === 'total') {
     S0 = c.mode === 'tune'
       ? findS_TOTAL(c.PV0, base, START_TARGET, probeRF)
-      // In manual mode, the entered amount is the household's total annual spending target.
-      // Guaranteed income offsets that target instead of increasing it one-for-one.
-      : (base.W || 0);
+      : (base.W || 0) + incomeAt(0, base.incomes!, base.cpi!);
     upperPV = findPV_TOTAL({ ...base }, S0, UPPER_TRIGGER, probeRF);
     lowerPV = findPV_TOTAL({ ...base }, S0, LOWER_TRIGGER, probeRF);
     const upperS = findS_TOTAL(upperPV, { ...base }, UPPER_RESET, probeRF);
@@ -505,6 +488,55 @@ export function calculateGuardrails(inputs: GuardrailsInputs): GuardrailsResults
     UPPER_TRIGGER, LOWER_TRIGGER, UPPER_RESET, LOWER_RESET,
     telemetry,
   };
+}
+
+/** Shape of the config actually used for a run — exposed so Volatility/Methods
+ *  pages can rebuild percentile paths and worked examples from the same inputs. */
+export interface GuardrailsRunConfig {
+  engine: GuardrailsInputs['engine'];
+  mode: GuardrailsInputs['mode'];
+  PV0: number;
+  T: number;
+  cpi: number;
+  N: number;
+  incomes: IncomeStream[];
+}
+
+export function buildRunConfig(inputs: GuardrailsInputs): GuardrailsRunConfig {
+  const c = buildConfig(inputs);
+  return { engine: c.engine as GuardrailsInputs['engine'], mode: c.mode as GuardrailsInputs['mode'], PV0: c.PV0, T: c.T, cpi: c.cpi, N: c.N, incomes: c.incomes };
+}
+
+export const GUARDRAILS_LAST_RUN_KEY = 'mc_last_run';
+
+export interface GuardrailsSnapshot {
+  inputs: GuardrailsRunConfig;
+  results: GuardrailsResults;
+  savedAt: string;
+}
+
+export function saveGuardrailsSnapshot(inputs: GuardrailsInputs, results: GuardrailsResults) {
+  const snapshot: GuardrailsSnapshot = {
+    inputs: buildRunConfig(inputs),
+    results,
+    savedAt: new Date().toISOString(),
+  };
+  try {
+    localStorage.setItem(GUARDRAILS_LAST_RUN_KEY, JSON.stringify(snapshot));
+  } catch {
+    // localStorage can fail in private-browsing contexts; Volatility/Methods
+    // pages handle a missing snapshot gracefully, so this is safe to ignore.
+  }
+}
+
+export function loadGuardrailsSnapshot(): GuardrailsSnapshot | null {
+  try {
+    const raw = localStorage.getItem(GUARDRAILS_LAST_RUN_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as GuardrailsSnapshot;
+  } catch {
+    return null;
+  }
 }
 
 export const GUARDRAILS_DEFAULTS: GuardrailsInputs = {
