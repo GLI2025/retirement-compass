@@ -12,6 +12,7 @@ import GuardrailsMethodsPage from "./pages/GuardrailsMethodsPage";
 import MilitaryPension from "./pages/MilitaryPension";
 import RothConversion from "./pages/RothConversion";
 import SavingsCalculatorPage from "./pages/SavingsCalculatorPage";
+import SailAwayPage from "./pages/SailAwayPage";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/military-pension" element={<MilitaryPension />} />
           <Route path="/roth-conversion" element={<RothConversion />} />
           <Route path="/savings-calculator" element={<SavingsCalculatorPage />} />
+          <Route path="/sailaway" element={<SailAwayPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
