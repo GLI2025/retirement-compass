@@ -83,6 +83,12 @@ export function PathCard({
           />
         </label>
       )}
+      {pathKey === 'A' && (
+        <p className="text-xs text-muted-foreground -mt-1">
+          This path departs immediately — no waiting period. To change the departure age, adjust
+          <strong> "Your Age"</strong> in the Sailing Inputs section above.
+        </p>
+      )}
 
       <div>
         <h4 className="text-sm font-semibold mb-2">Financing Strategy</h4>
