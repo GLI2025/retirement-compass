@@ -234,63 +234,63 @@ function LoanConfig({
   return (
     <div className="mt-3 space-y-3">
       {(loan === 'heloc' || loan === 'both') && (
-        <div className="bg-sky-50 rounded-lg p-3 space-y-2">
+        <div className="bg-sky-50 text-slate-900 rounded-lg p-3 space-y-2">
           <h5 className="text-xs font-bold text-sky-800">🏠 HELOC Configuration</h5>
           <HelocSnapshot params={params.heloc} />
           <FieldRow label="Boat Purchase Price">
-            <input type="number" value={params.heloc.boatPrice} onChange={(e) => onUpdate('heloc', { boatPrice: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm" />
+            <input type="number" value={params.heloc.boatPrice} onChange={(e) => onUpdate('heloc', { boatPrice: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm text-slate-900 bg-white" />
           </FieldRow>
           <FieldRow label="Available to Borrow">
-            <input type="number" value={params.heloc.available} onChange={(e) => onUpdate('heloc', { available: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm" />
+            <input type="number" value={params.heloc.available} onChange={(e) => onUpdate('heloc', { available: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm text-slate-900 bg-white" />
           </FieldRow>
           <FieldRow label="Initial Draw Amount">
-            <input type="number" value={params.heloc.drawAmount} onChange={(e) => onUpdate('heloc', { drawAmount: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm" />
+            <input type="number" value={params.heloc.drawAmount} onChange={(e) => onUpdate('heloc', { drawAmount: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm text-slate-900 bg-white" />
           </FieldRow>
           <FieldRow label="APR (%)">
-            <input type="number" step={0.1} value={params.heloc.rate} onChange={(e) => onUpdate('heloc', { rate: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm" />
+            <input type="number" step={0.1} value={params.heloc.rate} onChange={(e) => onUpdate('heloc', { rate: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm text-slate-900 bg-white" />
           </FieldRow>
           <FieldRow label="Interest-Only Months">
-            <input type="number" value={params.heloc.ioMonths} onChange={(e) => onUpdate('heloc', { ioMonths: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm" />
+            <input type="number" value={params.heloc.ioMonths} onChange={(e) => onUpdate('heloc', { ioMonths: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm text-slate-900 bg-white" />
           </FieldRow>
           <FieldRow label="Amortization Months">
-            <input type="number" value={params.heloc.amortMonths} onChange={(e) => onUpdate('heloc', { amortMonths: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm" />
+            <input type="number" value={params.heloc.amortMonths} onChange={(e) => onUpdate('heloc', { amortMonths: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm text-slate-900 bg-white" />
           </FieldRow>
         </div>
       )}
 
       {(loan === 'boat' || loan === 'both') && (
-        <div className="bg-purple-50 rounded-lg p-3 space-y-2">
+        <div className="bg-purple-50 text-slate-900 rounded-lg p-3 space-y-2">
           <h5 className="text-xs font-bold text-purple-800">⛵ Boat Loan Configuration</h5>
           <BoatSnapshot params={params.boat} />
           <FieldRow label="Boat Price">
-            <input type="number" value={params.boat.price} onChange={(e) => onUpdate('boat', { price: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm" />
+            <input type="number" value={params.boat.price} onChange={(e) => onUpdate('boat', { price: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm text-slate-900 bg-white" />
           </FieldRow>
           <FieldRow label="Down Payment (%)">
-            <input type="number" value={params.boat.downPercent} onChange={(e) => onUpdate('boat', { downPercent: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm" />
+            <input type="number" value={params.boat.downPercent} onChange={(e) => onUpdate('boat', { downPercent: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm text-slate-900 bg-white" />
           </FieldRow>
           <FieldRow label="APR (%)">
-            <input type="number" step={0.1} value={params.boat.rate} onChange={(e) => onUpdate('boat', { rate: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm" />
+            <input type="number" step={0.1} value={params.boat.rate} onChange={(e) => onUpdate('boat', { rate: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm text-slate-900 bg-white" />
           </FieldRow>
           <FieldRow label="Term (months)">
-            <input type="number" value={params.boat.termMonths} onChange={(e) => onUpdate('boat', { termMonths: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm" />
+            <input type="number" value={params.boat.termMonths} onChange={(e) => onUpdate('boat', { termMonths: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm text-slate-900 bg-white" />
           </FieldRow>
           <FieldRow label="Monthly Insurance">
-            <input type="number" value={params.boat.insuranceBump} onChange={(e) => onUpdate('boat', { insuranceBump: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm" />
+            <input type="number" value={params.boat.insuranceBump} onChange={(e) => onUpdate('boat', { insuranceBump: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm text-slate-900 bg-white" />
           </FieldRow>
         </div>
       )}
 
       {loan === 'other' && (
-        <div className="bg-amber-50 rounded-lg p-3 space-y-2">
+        <div className="bg-amber-50 text-slate-900 rounded-lg p-3 space-y-2">
           <h5 className="text-xs font-bold text-amber-800">📄 Other Loan Configuration</h5>
           <FieldRow label="Loan Principal">
-            <input type="number" value={params.other.principal} onChange={(e) => onUpdate('other', { principal: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm" />
+            <input type="number" value={params.other.principal} onChange={(e) => onUpdate('other', { principal: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm text-slate-900 bg-white" />
           </FieldRow>
           <FieldRow label="APR (%)">
-            <input type="number" step={0.1} value={params.other.rate} onChange={(e) => onUpdate('other', { rate: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm" />
+            <input type="number" step={0.1} value={params.other.rate} onChange={(e) => onUpdate('other', { rate: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm text-slate-900 bg-white" />
           </FieldRow>
           <FieldRow label="Term (months)">
-            <input type="number" value={params.other.termMonths} onChange={(e) => onUpdate('other', { termMonths: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm" />
+            <input type="number" value={params.other.termMonths} onChange={(e) => onUpdate('other', { termMonths: Number(e.target.value) })} className="p-1.5 rounded border border-border w-full text-sm text-slate-900 bg-white" />
           </FieldRow>
         </div>
       )}
@@ -300,7 +300,7 @@ function LoanConfig({
 
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 text-xs">
+    <label className="flex flex-col gap-1 text-xs text-slate-700">
       {label}
       {children}
     </label>
@@ -344,7 +344,7 @@ function BoatSnapshot({ params }: { params: SailAwayInputs['loanParams']['boat']
 
 function Row({ k, v, bold }: { k: string; v: string; bold?: boolean }) {
   return (
-    <div className="flex justify-between">
+    <div className="flex justify-between text-slate-800">
       <span>{k}</span>
       <span className={bold ? 'font-bold' : ''}>{v}</span>
     </div>
