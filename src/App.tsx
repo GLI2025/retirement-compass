@@ -9,6 +9,7 @@ import ExportSuccess from "./pages/ExportSuccess";
 import Guardrails from "./pages/Guardrails";
 import GuardrailsVolatilityPage from "./pages/GuardrailsVolatilityPage";
 import GuardrailsMethodsPage from "./pages/GuardrailsMethodsPage";
+import MilitaryPension from "./pages/MilitaryPension";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/guardrails" element={<Guardrails />} />
           <Route path="/guardrails/volatility" element={<GuardrailsVolatilityPage />} />
           <Route path="/guardrails/methods" element={<GuardrailsMethodsPage />} />
+          <Route path="/military-pension" element={<MilitaryPension />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
