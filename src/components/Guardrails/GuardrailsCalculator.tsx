@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Shield, Loader2 } from 'lucide-react';
 import { GuardrailsInputs, GuardrailsResults } from '@/types/guardrails';
-import { GUARDRAILS_DEFAULTS, calculateGuardrails } from '@/lib/calculations/guardrails';
+import { GUARDRAILS_DEFAULTS, calculateGuardrails, saveGuardrailsSnapshot } from '@/lib/calculations/guardrails';
 import { StepInput } from '../calculator/StepInput';
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString();
@@ -29,6 +30,7 @@ export function GuardrailsCalculator() {
     setTimeout(() => {
       const r = calculateGuardrails(inputs);
       setResults(r);
+      saveGuardrailsSnapshot(inputs, r);
       setRunning(false);
     }, 30);
   };
@@ -97,7 +99,7 @@ export function GuardrailsCalculator() {
         </section>
 
         <section className="glass-card p-4 sm:p-6 space-y-4">
-          <h2 className="text-lg font-semibold">Portfolio &amp; {inputs.engine === 'total' ? 'Spending Target' : 'Withdrawals'}</h2>
+          <h2 className="text-lg font-semibold">Portfolio &amp; Withdrawals</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <StepInput label="Initial Portfolio" value={inputs.portfolio} onChange={(v) => updateInput('portfolio', v)} min={0} step={10000} prefix="$" />
             <StepInput label="CPI (% nominal)" value={inputs.inflation} onChange={(v) => updateInput('inflation', v)} min={0} max={6} step={0.5} suffix="%" />
@@ -114,7 +116,7 @@ export function GuardrailsCalculator() {
                 checked={inputs.mode === 'manual' && inputs.byPercent}
                 onChange={() => { updateInput('mode', 'manual'); updateInput('byPercent', true); }}
               />
-              {inputs.engine === 'total' ? 'Manual spending by %' : 'Manual by %'}
+              Manual by %
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -122,7 +124,7 @@ export function GuardrailsCalculator() {
                 checked={inputs.mode === 'manual' && !inputs.byPercent}
                 onChange={() => { updateInput('mode', 'manual'); updateInput('byPercent', false); }}
               />
-              {inputs.engine === 'total' ? 'Manual spending by $' : 'Manual by $'}
+              Manual by $
             </label>
           </div>
 
@@ -130,14 +132,14 @@ export function GuardrailsCalculator() {
             <div className="grid gap-4 sm:grid-cols-2">
               {inputs.byPercent ? (
                 <StepInput
-                  label={inputs.engine === 'total' ? 'Annual Spending Target (% of portfolio)' : 'Initial Withdrawal Rate'}
+                  label="Initial Withdrawal Rate"
                   value={inputs.withdrawRatePct}
                   onChange={(v) => updateInput('withdrawRatePct', v)}
                   min={0} max={12} step={0.1} suffix="%"
                 />
               ) : (
                 <StepInput
-                  label={inputs.engine === 'total' ? 'Annual Spending Target' : 'Starting Portfolio Withdrawal'}
+                  label="Starting Withdrawal"
                   value={inputs.withdrawAmount}
                   onChange={(v) => updateInput('withdrawAmount', v)}
                   min={0} step={500} prefix="$"
@@ -202,7 +204,7 @@ export function GuardrailsCalculator() {
                 )}
               </div>
 
-              <div className="text-muted-foreground">{results.engine === 'total' ? 'Starting spending target' : 'Starting income'}</div>
+              <div className="text-muted-foreground">Starting income</div>
               <div className="font-medium">{money(results.startIncome)}/yr</div>
 
               {results.raiseNowIncome != null && (
@@ -224,21 +226,25 @@ export function GuardrailsCalculator() {
                 </>
               )}
 
-              {results.W0_port === 0 ? (
-                <>
-                  <div className="text-muted-foreground">Portfolio guardrail</div>
-                  <div className="font-medium text-emerald-600">
-                    Guaranteed income fully covers the starting spending target, so no portfolio cut threshold applies today.
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="text-muted-foreground">Cut threshold (≈25% today)</div>
-                  <div className="font-medium text-amber-600">
-                    {money(results.lowerPV)} — {results.lowerNote}, cut to ~{money(results.lowerIncome)}/yr
-                  </div>
-                </>
-              )}
+              <div className="text-muted-foreground">Cut threshold (≈25% today)</div>
+              <div className="font-medium text-amber-600">
+                {money(results.lowerPV)} — {results.lowerNote}, cut to ~{money(results.lowerIncome)}/yr
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 pt-2">
+              <Link
+                to="/guardrails/volatility"
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-sky-400 to-indigo-500 hover:brightness-105 transition"
+              >
+                View Volatility &amp; Drawdown
+              </Link>
+              <Link
+                to="/guardrails/methods"
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-sky-400 to-indigo-500 hover:brightness-105 transition"
+              >
+                Methods &amp; Formulas
+              </Link>
             </div>
           </section>
         )}
