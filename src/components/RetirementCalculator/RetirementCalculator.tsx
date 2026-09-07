@@ -87,7 +87,7 @@ export function RetirementCalculator() {
           </h1>
 
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Estimate you financial future potential. Adjust your inputs and see
+            Estimate your financial future potential. Adjust your financial picture inputs and see
             real-time projections of your retirement portfolio. Connect with a Financial professional for advanced views like taxes, extra outcomes, and as a second opinion to risks to any assumptions.
           </p>
         </div>
