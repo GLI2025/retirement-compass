@@ -143,10 +143,10 @@ export function RetirementCalculator() {
                   tooltip="Age when you'll start receiving SS benefits"
                 />
                 <StepInput
-                  label="Expected SS Monthly Benefit"
+                  label="SS monthly benefit (today’s dollars)"
                   value={inputs.ssMonthlyBenefit}
                   onChange={(v) => updateInput('ssMonthlyBenefit', v)}
-                  helperText="Use the amount shown on SSA (today’s dollars). Don’t inflate it yourself."
+                  helperText="Enter the amount shown on SSA. With COLA, we grow it from your current age so it keeps today’s buying power when payments begin."
                   min={0}
                   step={100}
                   prefix="$"
@@ -165,8 +165,8 @@ export function RetirementCalculator() {
               </label>
 
               <p className="text-xs text-muted-foreground leading-snug">
-                If inflation is enabled, COLA grows Social Security over time. (You should
-                enter SS in today’s dollars.)
+                With COLA on, the entered amount is treated as today’s dollars. With COLA off,
+                it remains a fixed nominal payment beginning at the claim age.
               </p>
             </div>
           </ToggleOption>
@@ -252,6 +252,8 @@ export function RetirementCalculator() {
             dieWithZeroTargetAge={
               inputs.spendingRule === 'die_with_zero' ? inputs.dieWithZero?.targetAge : undefined
             }
+            planEndAge={results.planEndAge}
+            requiredEndingBalance={results.requiredEndingBalance}
           />
         </div>
 

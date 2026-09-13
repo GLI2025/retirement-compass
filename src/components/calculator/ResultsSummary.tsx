@@ -33,12 +33,25 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
   } = results;
 
   const isSurplus = gap >= 0;
+  const hasMC = typeof successProbability === 'number';
+  const heldUpCount = hasMC ? Math.round((successProbability ?? 0) * MC_RUNS) : 0;
+  const successPercent = hasMC ? Math.round((successProbability ?? 0) * 100) : 0;
+  const belowTarget = hasMC ? (successProbability ?? 0) < CONFIDENCE_TARGET : false;
   const shortfallPercent = requiredSavings > 0 ? Math.abs(gap) / requiredSavings : 0;
-  const outlook = results.targetStatus
+  const deterministicOutlook = results.targetStatus
     ? (results.targetStatus === 'met' ? 'on-track' : results.targetStatus === 'buffer-short' ? 'close' : 'short')
     : isSurplus ? 'on-track' : shortfallPercent <= 0.1 ? 'close' : 'short';
+  const outlook = hasMC
+    ? (belowTarget ? (successPercent >= 50 ? 'close' : 'short') : 'on-track')
+    : deterministicOutlook;
 
-  const outlookContent = results.targetStatus ? {
+  const outlookContent = hasMC ? {
+    eyebrow: belowTarget ? 'Monte Carlo below target' : 'Monte Carlo target met',
+    headline: `${successPercent} out of 100 simulated paths met the complete plan target.`,
+    detail: inputs.spendingRule === 'die_with_zero'
+      ? `A path succeeds only if it stays funded through age ${results.planEndAge} and finishes with at least your ${formatCurrency(inputs.dieWithZero?.bufferAmount ?? 0)} ending buffer in today's dollars.`
+      : `A path succeeds only if it stays funded through age ${results.planEndAge}.`,
+  } : results.targetStatus ? {
     met: { eyebrow: 'Target met', headline: 'Your spending and ending buffer fit this projection.', detail: 'Based on the selected investment returns and income timing.' },
     'buffer-short': { eyebrow: 'Buffer short', headline: 'Spending funded, buffer short.', detail: 'The portfolio lasts through the target age but finishes below your selected buffer.' },
     depleted: { eyebrow: 'Short', headline: 'Portfolio depleted early.', detail: 'Your entered spending exhausts the portfolio before the plan is complete.' },
@@ -59,11 +72,6 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
       detail: 'Focus first on the savings path and retirement income need shown below.',
     },
   }[outlook];
-
-  // Monte Carlo “confidence” line
-  const hasMC = typeof successProbability === 'number';
-  const heldUpCount = hasMC ? Math.round((successProbability ?? 0) * MC_RUNS) : 0;
-  const belowTarget = hasMC ? (successProbability ?? 0) < CONFIDENCE_TARGET : false;
 
   // Use the retirement checkpoint for the paycheck breakdown
   const retireCp = checkpoints?.find(c => c.age === inputs.retirementAge);
@@ -212,7 +220,7 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
 
           {hasMC ? (
             <p className="text-xs text-muted-foreground mt-2">
-              Plan held up in <strong>{heldUpCount} / {MC_RUNS}</strong> market scenarios
+              Complete plan success in <strong>{heldUpCount} / {MC_RUNS}</strong> market scenarios
               {belowTarget && <> (below {Math.round(CONFIDENCE_TARGET * 100)}% target)</>}
             </p>
           ) : (

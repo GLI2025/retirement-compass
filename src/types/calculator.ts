@@ -170,6 +170,8 @@ export interface CalculatorResults {
   successProbability?: number;
   sustainableMonthlySpending?: number;
   targetStatus?: 'met' | 'buffer-short' | 'depleted';
+  planEndAge: number;
+  requiredEndingBalance: number;
 }
 
 // Guidance recommendation

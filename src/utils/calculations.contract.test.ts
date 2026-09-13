@@ -6,6 +6,8 @@ import {
   calculateOtherIncome,
   calculateRetirement,
   calculateSSIncome,
+  evaluatePlanPathSuccess,
+  generateGuidance,
 } from '@/utils/calculations';
 
 function contractInputs(overrides: Partial<CalculatorInputs> = {}): CalculatorInputs {
@@ -63,6 +65,15 @@ function seededRandom(seed: number): () => number {
   return () => {
     state = (Math.imul(1664525, state) + 1013904223) >>> 0;
     return (state + 1) / 4294967297;
+  };
+}
+
+function deterministicGrowth(): () => number {
+  let firstValue = true;
+  return () => {
+    const value = firstValue ? 0.5 : 0.25;
+    firstValue = !firstValue;
+    return value;
   };
 }
 
@@ -242,5 +253,157 @@ describe('Monte Carlo test scaffolding', () => {
 
     expect(replay.chartData).toEqual(first.chartData);
     expect(replay.successProbability).toBe(first.successProbability);
+  });
+});
+
+describe('corrected Monte Carlo success contract', () => {
+  it('keeps a path failed after depletion even when a later deposit restores its balance', () => {
+    const inputs = contractInputs({
+      currentAge: 64,
+      retirementAge: 65,
+      currentSavings: 1000,
+      monthlyExpenses: 1000,
+      oneTimeDeposits: [{
+        id: 'late-deposit',
+        type: 'other',
+        amount: 1000000,
+        ageReceived: 70,
+      }],
+      monteCarloEnabled: true,
+    });
+
+    const results = calculateRetirement(inputs, { random: deterministicGrowth() });
+
+    expect(balanceAt(results, 66)).toBe(0);
+    expect(balanceAt(results, 70)).toBe(1000000);
+    expect(balanceAt(results, results.planEndAge)).toBeGreaterThan(0);
+    expect(results.successProbability).toBe(0);
+  });
+
+  it('fails a die-with-zero path that ends below its selected buffer', () => {
+    const inputs = contractInputs({
+      spendingRule: 'die_with_zero',
+      dieWithZero: { targetAge: 90, bufferAmount: 500000 },
+      inflationEnabled: false,
+    });
+
+    expect(evaluatePlanPathSuccess(inputs, {
+      endingBalance: 499999,
+      depletedBeforePlanEnd: false,
+    })).toBe(false);
+  });
+
+  it('succeeds when a die-with-zero path reaches or exceeds its selected buffer', () => {
+    const inputs = contractInputs({
+      spendingRule: 'die_with_zero',
+      dieWithZero: { targetAge: 90, bufferAmount: 500000 },
+      inflationEnabled: false,
+    });
+
+    expect(evaluatePlanPathSuccess(inputs, {
+      endingBalance: 500000,
+      depletedBeforePlanEnd: false,
+    })).toBe(true);
+    expect(evaluatePlanPathSuccess(inputs, {
+      endingBalance: 500001,
+      depletedBeforePlanEnd: false,
+    })).toBe(true);
+  });
+
+  it.each(['fixed', 'guardrails'] as const)(
+    'counts surviving %s paths as successful',
+    (spendingRule) => {
+      const inputs = contractInputs({
+        currentAge: 79,
+        retirementAge: 80,
+        currentSavings: 100000,
+        monthlyExpenses: 0,
+        spendingRule,
+        monteCarloEnabled: true,
+      });
+
+      const results = calculateRetirement(inputs, { random: deterministicGrowth() });
+
+      expect(results.requiredEndingBalance).toBe(0);
+      expect(results.successProbability).toBe(1);
+    },
+  );
+});
+
+describe('today-dollar income contract', () => {
+  it('keeps COLA-enabled other income at zero until start and grows it from current age', () => {
+    const inputs = contractInputs({
+      inflationEnabled: true,
+      inflationRate: 3,
+      otherIncome: [{
+        id: 'pension',
+        label: 'Pension',
+        monthlyAmount: 1000,
+        startAge: 65,
+        hasCola: true,
+      }],
+    });
+
+    expect(calculateOtherIncome(inputs, 64)).toBe(0);
+    expect(calculateOtherIncome(inputs, 65)).toBeCloseTo(1000 * Math.pow(1.03, 5), 6);
+  });
+
+  it('keeps non-COLA other income nominal after its start age', () => {
+    const inputs = contractInputs({
+      inflationEnabled: true,
+      inflationRate: 3,
+      otherIncome: [{
+        id: 'pension',
+        label: 'Pension',
+        monthlyAmount: 1000,
+        startAge: 65,
+        hasCola: false,
+      }],
+    });
+
+    expect(calculateOtherIncome(inputs, 64)).toBe(0);
+    expect(calculateOtherIncome(inputs, 65)).toBe(1000);
+    expect(calculateOtherIncome(inputs, 75)).toBe(1000);
+  });
+
+  it('treats COLA-enabled Social Security as today-dollar income at claim age', () => {
+    const inputs = contractInputs({
+      inflationEnabled: true,
+      inflationRate: 3,
+      ssEnabled: true,
+      ssClaimAge: 67,
+      ssMonthlyBenefit: 1200,
+      applyInflationToSS: true,
+    });
+
+    expect(calculateSSIncome(inputs, 66)).toBe(0);
+    expect(calculateSSIncome(inputs, 67)).toBeCloseTo(1200 * Math.pow(1.03, 7), 6);
+  });
+});
+
+describe('projection-backed spending guidance', () => {
+  it('recommends a practical spending level that survives the monthly projection', () => {
+    const inputs = contractInputs({
+      currentAge: 60,
+      retirementAge: 65,
+      currentSavings: 300000,
+      monthlyExpenses: 3000,
+    });
+    const results = calculateRetirement(inputs);
+    const supportedMonthly = results.sustainableMonthlySpending ?? 0;
+    const practicalMonthly = Math.floor(supportedMonthly / 100) * 100;
+    const guidance = generateGuidance(inputs, results);
+    const spendingGuidance = guidance.find(item => item.type === 'expenses');
+    const rerun = calculateRetirement({ ...inputs, monthlyExpenses: practicalMonthly });
+
+    expect(supportedMonthly).toBeGreaterThan(0);
+    expect(supportedMonthly).toBeLessThan(inputs.monthlyExpenses);
+    expect(rerun.chartData.slice(0, -1).every(point => point.balance > 0)).toBe(true);
+    expect(spendingGuidance?.description).toContain('$36,000/year');
+    expect(spendingGuidance?.description).toContain(
+      `$${(practicalMonthly * 12).toLocaleString()}/year`,
+    );
+    expect(spendingGuidance?.description).toContain('estimated reduction');
+    expect(spendingGuidance?.description).not.toContain('close the gap');
   });
 });
