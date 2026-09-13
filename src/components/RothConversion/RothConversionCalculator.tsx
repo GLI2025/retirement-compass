@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Landmark } from 'lucide-react';
 import { RothConversionInputs, FilingStatus, DeductionType, StateTaxMode } from '@/types/rothConversion';
 import { ROTH_CONVERSION_DEFAULTS, calculateRothConversion } from '@/lib/calculations/rothConversion';
+import { CalculatorNavigation } from '@/components/calculator/CalculatorNavigation';
 
 const money = (n: number) => n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const pct = (n: number) => (isNaN(n) ? '–' : (n * 100).toFixed(1) + '%');
@@ -44,11 +45,11 @@ export function RothConversionCalculator() {
             <Landmark className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium">Low-Income Year Planning</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
+          <CalculatorNavigation>
             <span className="gradient-text">Roth Conversion</span>
             <br />
             <span className="text-foreground">Planner</span>
-          </h1>
+          </CalculatorNavigation>
           <p className="text-muted-foreground max-w-2xl mx-auto text-sm">
             Model a Roth conversion during a low-income year — bracket stacking, Social Security
             taxation, NIIT, and ACA/IRMAA risk flags. Nothing here is saved or transmitted.

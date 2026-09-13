@@ -3,6 +3,7 @@ import { Sailboat } from 'lucide-react';
 import { SailAwayInputs, PathKey, LoanType } from '@/types/sailAway';
 import { SAILAWAY_DEFAULTS, simulateBoth } from '@/lib/calculations/sailAway';
 import { PathCard } from './PathCard';
+import { CalculatorNavigation } from '@/components/calculator/CalculatorNavigation';
 
 const SAILING_PRESETS = [
   { key: 'low', label: 'Low $1,700', amount: 1700 },
@@ -58,11 +59,11 @@ export function SailAwayCalculator() {
             <Sailboat className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium">Stop Dreaming. Start Calculating.</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
+          <CalculatorNavigation>
             <span className="gradient-text">SailAway</span>
             <br />
             <span className="text-foreground">Calculator</span>
-          </h1>
+          </CalculatorNavigation>
           <p className="text-muted-foreground max-w-2xl mx-auto text-sm">
             Compare three paths to casting off — go now, work and save first, or retire
             traditionally — with real loan math and optional stress-testing.

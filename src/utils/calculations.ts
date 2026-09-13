@@ -594,19 +594,31 @@ interface MonteCarloResult {
   requiredForSuccess: number;
 }
 
-function randomStandardNormal(): number {
-  const u1 = Math.random();
-  const u2 = Math.random();
+export interface CalculationOptions {
+  random?: () => number;
+}
+
+function randomStandardNormal(random: () => number): number {
+  const u1 = random();
+  const u2 = random();
   return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 }
 
-function sampleLognormalMonthlyReturn(muMonthlyLog: number, sigmaMonthly: number): number {
-  const z = randomStandardNormal();
+function sampleLognormalMonthlyReturn(
+  muMonthlyLog: number,
+  sigmaMonthly: number,
+  random: () => number,
+): number {
+  const z = randomStandardNormal(random);
   const logReturn = (muMonthlyLog - 0.5 * sigmaMonthly * sigmaMonthly) + sigmaMonthly * z;
   return Math.exp(logReturn) - 1;
 }
 
-function simulatePath(inputs: CalculatorInputs, startingBalance: number): number[] {
+function simulatePath(
+  inputs: CalculatorInputs,
+  startingBalance: number,
+  random: () => number,
+): number[] {
   const strategy = STRATEGIES[inputs.investmentStrategy];
   const retirementStrategy = inputs.retirementStrategyEnabled
     ? STRATEGIES[inputs.retirementStrategy]
@@ -642,7 +654,7 @@ function simulatePath(inputs: CalculatorInputs, startingBalance: number): number
 
     if (age < inputs.retirementAge) {
       for (let month = 0; month < 12; month++) {
-        const monthlyReturn = sampleLognormalMonthlyReturn(muMonthlyLog, sigmaMonthly);
+        const monthlyReturn = sampleLognormalMonthlyReturn(muMonthlyLog, sigmaMonthly, random);
         balance = balance * (1 + monthlyReturn) + monthlyContrib;
       }
 
@@ -674,7 +686,7 @@ function simulatePath(inputs: CalculatorInputs, startingBalance: number): number
           assumedMonthlyReturn
         });
 
-        const monthlyReturn = sampleLognormalMonthlyReturn(muMonthlyLog, sigmaMonthly);
+        const monthlyReturn = sampleLognormalMonthlyReturn(muMonthlyLog, sigmaMonthly, random);
         balance = balance * (1 + monthlyReturn) - withdrawalFromPortfolio;
         if (balance < 0) balance = 0;
       }
@@ -684,7 +696,7 @@ function simulatePath(inputs: CalculatorInputs, startingBalance: number): number
   return balances;
 }
 
-function runMonteCarlo(inputs: CalculatorInputs): MonteCarloResult {
+function runMonteCarlo(inputs: CalculatorInputs, random: () => number): MonteCarloResult {
   const endAge = getEndAge(inputs);
 
   const ages: number[] = [];
@@ -692,7 +704,7 @@ function runMonteCarlo(inputs: CalculatorInputs): MonteCarloResult {
 
   const allPaths: number[][] = [];
   for (let i = 0; i < MONTE_CARLO_RUNS; i++) {
-    allPaths.push(simulatePath(inputs, inputs.currentSavings ?? 0));
+    allPaths.push(simulatePath(inputs, inputs.currentSavings ?? 0, random));
   }
 
   const chartData: ChartDataPoint[] = ages.map((age, idx) => {
@@ -721,7 +733,7 @@ function runMonteCarlo(inputs: CalculatorInputs): MonteCarloResult {
     let successes = 0;
 
     for (let i = 0; i < 200; i++) {
-      const path = simulatePath(inputs, mid);
+      const path = simulatePath(inputs, mid, random);
       if ((path[path.length - 1] ?? 0) > 0) successes++;
     }
 
@@ -740,7 +752,10 @@ function runMonteCarlo(inputs: CalculatorInputs): MonteCarloResult {
 // Main
 // ------------------------------
 
-export function calculateRetirement(rawInputs: CalculatorInputs): CalculatorResults {
+export function calculateRetirement(
+  rawInputs: CalculatorInputs,
+  options: CalculationOptions = {},
+): CalculatorResults {
   const inputs = normalizeAgeInputs(rawInputs);
 
   const requiredSavings = calculateRequiredSavings(inputs);
@@ -752,7 +767,7 @@ export function calculateRetirement(rawInputs: CalculatorInputs): CalculatorResu
   let successProbability: number | undefined;
 
   if (inputs.monteCarloEnabled) {
-    const mcResult = runMonteCarlo(inputs);
+    const mcResult = runMonteCarlo(inputs, options.random ?? Math.random);
     chartData = mcResult.chartData;
     successProbability = mcResult.successProbability;
   } else {

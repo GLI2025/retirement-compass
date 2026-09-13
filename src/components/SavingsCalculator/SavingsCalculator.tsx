@@ -3,6 +3,7 @@ import { PiggyBank } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { SavingsCalculatorInputs, PeriodsPerYear } from '@/types/savingsCalculator';
 import { SAVINGS_CALCULATOR_DEFAULTS, calculateSavings } from '@/lib/calculations/savingsCalculator';
+import { CalculatorNavigation } from '@/components/calculator/CalculatorNavigation';
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString();
 
@@ -50,11 +51,11 @@ export function SavingsCalculator() {
             <PiggyBank className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium">Savings + Employer Match</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
+          <CalculatorNavigation>
             <span className="gradient-text">Savings</span>
             <br />
             <span className="text-foreground">Calculator</span>
-          </h1>
+          </CalculatorNavigation>
           <p className="text-muted-foreground max-w-2xl mx-auto text-sm">
             Project your account balance with regular contributions and employer matching.
           </p>

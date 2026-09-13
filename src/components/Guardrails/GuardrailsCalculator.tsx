@@ -4,6 +4,7 @@ import { Shield, Loader2 } from 'lucide-react';
 import { GuardrailsInputs, GuardrailsResults } from '@/types/guardrails';
 import { GUARDRAILS_DEFAULTS, calculateGuardrails, saveGuardrailsSnapshot } from '@/lib/calculations/guardrails';
 import { StepInput } from '../calculator/StepInput';
+import { CalculatorNavigation } from '../calculator/CalculatorNavigation';
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString();
 const pct0 = (n: number) => (n * 100).toFixed(0) + '%';
@@ -43,11 +44,11 @@ export function GuardrailsCalculator() {
             <Shield className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium">Flexible Spending, Modeled With Monte Carlo</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
+          <CalculatorNavigation>
             <span className="gradient-text">Guardrails</span>
             <br />
             <span className="text-foreground">Retirement Calculator</span>
-          </h1>
+          </CalculatorNavigation>
           <p className="text-muted-foreground max-w-2xl mx-auto">
             Instead of a fixed withdrawal, guardrails let your spending flex within a safe
             range based on how markets actually perform. This tool estimates your odds of
