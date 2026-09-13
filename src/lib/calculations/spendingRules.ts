@@ -21,6 +21,16 @@ function calculateWithdrawalRate(annualWithdrawal: number, balance: number): num
   return annualWithdrawal / balance;
 }
 
+export function getDieWithZeroTargetBalance(inputs: CalculatorInputs): number {
+  const bufferToday = Math.max(0, inputs.dieWithZero?.bufferAmount ?? 0);
+  if (!inputs.inflationEnabled) return bufferToday;
+
+  const targetAge = inputs.dieWithZero?.targetAge ?? inputs.retirementAge;
+  const yearsToTarget = Math.max(0, targetAge - inputs.currentAge);
+  const inflationRate = Math.max(0, inputs.inflationRate ?? 0) / 100;
+  return bufferToday * Math.pow(1 + inflationRate, yearsToTarget);
+}
+
 // Main entry: returns the withdrawal to take from portfolio this month (nominal)
 export function applySpendingRule(inputs: CalculatorInputs, ctx: SpendingRuleContext): number {
   const rule: SpendingRule = inputs.spendingRule ?? 'fixed';
@@ -73,15 +83,20 @@ export function applySpendingRule(inputs: CalculatorInputs, ctx: SpendingRuleCon
   const n = Math.max(1, ctx.remainingMonths);
   const r = ctx.assumedMonthlyReturn ?? 0;
   const B = Math.max(0, ctx.portfolioBalance);
+  const targetBalance = getDieWithZeroTargetBalance(inputs);
+  const targetPresentValue = targetBalance / Math.pow(1 + r, n);
 
   // Amortization payment that reaches ~0 at month n, assuming constant r
   // If r ~ 0: payment ≈ B / n
   // Else: payment = B * r / (1 - (1 + r)^(-n))
   const amortized =
     Math.abs(r) < 1e-9
-      ? B / n
-      : (B * r) / (1 - Math.pow(1 + r, -n));
+      ? (B - targetBalance) / n
+      : ((B - targetPresentValue) * r) / (1 - Math.pow(1 + r, -n));
 
-  // DWZ “maximize spending” = at least baseline need, and higher if you can.
-  return Math.max(0, Math.max(ctx.baselinePortfolioWithdrawal, amortized));
+  // Never reduce the user's planned portfolio withdrawal just to make the
+  // balance last until the target age. If the portfolio can support more,
+  // increase the withdrawal so the balance trends toward approximately $0.
+  // If it cannot, keep the requested withdrawal and show depletion early.
+  return Math.max(0, ctx.baselinePortfolioWithdrawal, amortized);
 }

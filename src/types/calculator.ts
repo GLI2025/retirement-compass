@@ -83,6 +83,7 @@ export interface GuardrailsConfig {
 
 export interface DieWithZeroConfig {
   targetAge: number; // e.g. 95
+  bufferAmount?: number; // today's dollars to preserve at target age
 }
 
 
@@ -143,9 +144,11 @@ export interface IncomeCheckpoint {
   ssIncome: number;
   otherIncome: number;
   fromPortfolio: number;
+  spendingGap: number;
   portfolioBalance: number;
   withdrawalRate: number;
   stressLevel: 'good' | 'warn' | 'bad';
+  isPlanEnd?: boolean;
 
   // new guardrails detail
   targetWithdrawalRate?: number;
@@ -164,6 +167,7 @@ export interface CalculatorResults {
   chartData: ChartDataPoint[];
   checkpoints: IncomeCheckpoint[];
   successProbability?: number;
+  sustainableMonthlySpending?: number;
 }
 
 // Guidance recommendation
@@ -173,5 +177,3 @@ export interface GuidanceItem {
   description: string;
   value?: string;
 }
-
-

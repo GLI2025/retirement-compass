@@ -7,7 +7,10 @@ import {
   STRATEGIES
 } from '@/types/calculator';
 
-import { applySpendingRule } from '@/lib/calculations/spendingRules';
+import {
+  applySpendingRule,
+  getDieWithZeroTargetBalance
+} from '@/lib/calculations/spendingRules';
 import { DEFAULT_INPUTS, DEFAULT_LIFE_EXPECTANCY } from '@/lib/defaults';
 
 const LIFE_EXPECTANCY = DEFAULT_LIFE_EXPECTANCY;
@@ -58,15 +61,18 @@ function getEndAge(inputs: CalculatorInputs): number {
 
   // DWZ should use the user's targetAge as the plan end (even if > LIFE_EXPECTANCY)
   const targetAge = inputs.dieWithZero?.targetAge ?? LIFE_EXPECTANCY;
+  const normalizedTargetAge = Number.isFinite(targetAge)
+    ? Math.round(targetAge)
+    : LIFE_EXPECTANCY;
 
-  // Clamp to [currentAge, MAX_END_AGE]
-  return Math.max(inputs.currentAge, Math.min(targetAge, MAX_END_AGE));
+  // A drawdown target must leave at least one year after retirement.
+  return Math.max(inputs.retirementAge + 1, Math.min(normalizedTargetAge, MAX_END_AGE));
 }
 
 // SS benefit input is assumed to be in "today's dollars" (real).
 // If inflation + COLA are enabled, we convert it to nominal dollars at each future age
 // so it stays comparable to inflated expenses.
-function calculateSSIncome(inputs: CalculatorInputs, age: number): number {
+export function calculateSSIncome(inputs: CalculatorInputs, age: number): number {
   if (!inputs.ssEnabled || age < inputs.ssClaimAge) return 0;
 
   let ssBenefit = inputs.ssMonthlyBenefit ?? 0;
@@ -79,7 +85,7 @@ function calculateSSIncome(inputs: CalculatorInputs, age: number): number {
   return ssBenefit;
 }
 
-function calculateOtherIncome(inputs: CalculatorInputs, age: number): number {
+export function calculateOtherIncome(inputs: CalculatorInputs, age: number): number {
   const list = inputs.otherIncome ?? [];
   return list.reduce((total, income) => {
     if (age >= income.startAge && (!income.endAge || age <= income.endAge)) {
@@ -98,7 +104,7 @@ function calculateMonthlyExpenses(inputs: CalculatorInputs, age: number): number
   // Fixed-rate mortgage is nominal (does NOT inflate). Lifestyle expenses inflate.
 
   const baseExpenses = inputs.monthlyExpenses ?? 0;
-  const mortgage = inputs.currentMortgagePayment ?? 0;
+  const mortgage = inputs.housePayoffEnabled ? inputs.currentMortgagePayment ?? 0 : 0;
 
   // A) Lifestyle Base = total expenses - mortgage
   const lifestyleBase = Math.max(0, baseExpenses - mortgage);
@@ -124,8 +130,14 @@ function calculateMonthlyExpenses(inputs: CalculatorInputs, age: number): number
 // Deterministic projection
 // ------------------------------
 
-function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
+interface DeterministicProjection {
+  chartData: ChartDataPoint[];
+  depletedBeforeTarget: boolean;
+}
+
+function generateProjectionDetails(inputs: CalculatorInputs): DeterministicProjection {
   const data: ChartDataPoint[] = [];
+  let depletedBeforeTarget = false;
 
   const strategy = STRATEGIES[inputs.investmentStrategy];
   const retirementStrategy = inputs.retirementStrategyEnabled
@@ -146,6 +158,7 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
     balance += deposits;
 
     data.push({ age, balance: Math.max(0, balance) });
+    if (age === endAge) break;
 
     if (age < inputs.retirementAge) {
       const annualReturn = strategy.expectedReturn;
@@ -185,12 +198,59 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
         });
 
         balance = balance * (1 + monthlyReturn) - withdrawalFromPortfolio;
-        if (balance < 0) balance = 0;
+        if (balance <= 0) {
+          balance = 0;
+          if (monthIndexFromRetirement < totalMonthsFromRetirement - 1) {
+            depletedBeforeTarget = true;
+          }
+        }
       }
     }
   }
 
-  return data;
+  return { chartData: data, depletedBeforeTarget };
+}
+
+function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
+  return generateProjectionDetails(inputs).chartData;
+}
+
+function calculateSustainableMonthlySpending(inputs: CalculatorInputs): number | undefined {
+  if (inputs.spendingRule !== 'die_with_zero') return undefined;
+
+  const targetBalance = getDieWithZeroTargetBalance(inputs);
+  const tolerance = Math.max(0.01, targetBalance * 1e-9);
+
+  const fitsTarget = (monthlyExpenses: number) => {
+    const outcome = generateProjectionDetails({
+      ...inputs,
+      monthlyExpenses,
+      monteCarloEnabled: false,
+    });
+    const endingBalance = outcome.chartData.at(-1)?.balance ?? 0;
+    return !outcome.depletedBeforeTarget && endingBalance >= targetBalance - tolerance;
+  };
+
+  if (!fitsTarget(0)) return 0;
+
+  let low = 0;
+  let high = Math.max(1000, inputs.monthlyExpenses ?? 0);
+  const maxSearchSpending = 1000000;
+
+  while (high < maxSearchSpending && fitsTarget(high)) {
+    low = high;
+    high = Math.min(maxSearchSpending, high * 2);
+  }
+
+  for (let iteration = 0; iteration < 45; iteration++) {
+    const midpoint = (low + high) / 2;
+    if (fitsTarget(midpoint)) low = midpoint;
+    else high = midpoint;
+  }
+
+  // Whole dollars can be copied into the spending input without rounding up
+  // beyond the calculated limit.
+  return Math.floor(low);
 }
 
 // ------------------------------
@@ -217,6 +277,11 @@ function calculateRequiredSavings(inputs: CalculatorInputs): number {
 
     const annualNetExpenses = Math.max(0, monthlyExpenses - ssIncome - otherIncome) * 12;
     totalPV += annualNetExpenses / Math.pow(1 + nominalRate, year);
+  }
+
+  if (inputs.spendingRule === 'die_with_zero') {
+    const targetBalance = getDieWithZeroTargetBalance(inputs);
+    totalPV += targetBalance / Math.pow(1 + nominalRate, retirementYears);
   }
 
   return totalPV;
@@ -302,6 +367,10 @@ function labelForAge(inputs: CalculatorInputs, age: number): string {
 function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint[]): IncomeCheckpoint[] {
   const ages = getCheckpointAges(inputs);
   const endAge = getEndAge(inputs);
+  const depletionAge = chartData.find(
+    point => point.age >= inputs.retirementAge && point.balance < 1
+  )?.age;
+  const depletesBeforeTarget = depletionAge !== undefined && depletionAge < endAge;
 
   const retirementStrategy = inputs.retirementStrategyEnabled
     ? STRATEGIES[inputs.retirementStrategy]
@@ -328,7 +397,7 @@ function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint
   const monthIndexFromRetirement = (age - inputs.retirementAge) * 12;
   const remainingMonths = Math.max(1, totalMonthsFromRetirement - monthIndexFromRetirement);
 
-  const fromPortfolio = applySpendingRule(inputs, {
+  const requestedFromPortfolio = applySpendingRule(inputs, {
     age,
     monthIndexFromRetirement,
     remainingMonths,
@@ -337,6 +406,10 @@ function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint
     baselinePortfolioWithdrawal,
     assumedMonthlyReturn
   });
+
+  const isPlanEnd = inputs.spendingRule === 'die_with_zero' && age === endAge;
+  const fromPortfolio = balance < 1 ? 0 : requestedFromPortfolio;
+  const spendingGap = Math.max(0, monthlyNeed - (ssIncome + otherIncome + fromPortfolio));
 
   const annualBaselineWithdrawal = baselinePortfolioWithdrawal * 12;
   const annualActualWithdrawal = fromPortfolio * 12;
@@ -383,7 +456,9 @@ function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint
       status = 'warn';
     }
   } else if (inputs.spendingRule === 'die_with_zero') {
-    status = 'good';
+    status = depletesBeforeTarget
+      ? 'bad'
+      : (isPlanEnd && balance >= 1 ? 'warn' : 'good');
   } else {
     const yearsPast70 = Math.max(0, age - 70);
     const warnThreshold = Math.min(0.10, 0.04 + yearsPast70 * 0.001);
@@ -393,6 +468,8 @@ function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint
     else if (actualWithdrawalRate >= warnThreshold) status = 'warn';
   }
 
+  if (balance < 1 && spendingGap > 0.5 && !isPlanEnd) status = 'bad';
+
   return {
     age,
     label: labelForAge(inputs, age),
@@ -400,9 +477,11 @@ function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint
     ssIncome,
     otherIncome,
     fromPortfolio,
+    spendingGap,
     portfolioBalance: balance,
     withdrawalRate: actualWithdrawalRate,
     stressLevel: status,
+    isPlanEnd,
     targetWithdrawalRate,
     currentBaselineWithdrawalRate,
     lowerGuardrailRate,
@@ -662,6 +741,7 @@ export function calculateRetirement(rawInputs: CalculatorInputs): CalculatorResu
   }
 
   const checkpoints = generateCheckpoints(inputs, chartData);
+  const sustainableMonthlySpending = calculateSustainableMonthlySpending(inputs);
 
   return {
     requiredSavings,
@@ -670,6 +750,7 @@ export function calculateRetirement(rawInputs: CalculatorInputs): CalculatorResu
     isOnTrack,
     chartData,
     checkpoints,
-    successProbability
+    successProbability,
+    sustainableMonthlySpending
   };
 }
