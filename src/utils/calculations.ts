@@ -69,6 +69,28 @@ function getEndAge(inputs: CalculatorInputs): number {
   return Math.max(inputs.retirementAge + 1, Math.min(normalizedTargetAge, MAX_END_AGE));
 }
 
+function getRequiredEndingBalance(inputs: CalculatorInputs): number {
+  return inputs.spendingRule === 'die_with_zero'
+    ? getDieWithZeroTargetBalance(inputs)
+    : 0;
+}
+
+export interface PlanPathOutcome {
+  endingBalance: number;
+  depletedBeforePlanEnd: boolean;
+}
+
+export function evaluatePlanPathSuccess(
+  inputs: CalculatorInputs,
+  outcome: PlanPathOutcome,
+): boolean {
+  if (outcome.depletedBeforePlanEnd) return false;
+
+  const target = getRequiredEndingBalance(inputs);
+  const tolerance = Math.max(0.01, target * 1e-9);
+  return outcome.endingBalance >= target - tolerance;
+}
+
 // SS benefit input is assumed to be in "today's dollars" (real).
 // If inflation + COLA are enabled, we convert it to nominal dollars at each future age
 // so it stays comparable to inflated expenses.
@@ -221,22 +243,25 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
 
 function assessTarget(inputs: CalculatorInputs, outcome: DeterministicProjection) {
   if (outcome.depletedBeforeTarget) return 'depleted' as const;
-  const target = getDieWithZeroTargetBalance(inputs);
   const ending = outcome.chartData.at(-1)?.balance ?? 0;
-  return ending >= target - Math.max(0.01, target * 1e-9)
+  return evaluatePlanPathSuccess(inputs, {
+    endingBalance: ending,
+    depletedBeforePlanEnd: outcome.depletedBeforeTarget,
+  })
     ? 'met' as const : 'buffer-short' as const;
 }
 
 function calculateSustainableMonthlySpending(inputs: CalculatorInputs): number | undefined {
-  if (inputs.spendingRule !== 'die_with_zero') return undefined;
-
   const fitsTarget = (monthlyExpenses: number) => {
     const outcome = generateProjectionDetails({
       ...inputs,
       monthlyExpenses,
       monteCarloEnabled: false,
     });
-    return assessTarget(inputs, outcome) === 'met';
+    return evaluatePlanPathSuccess(inputs, {
+      endingBalance: outcome.chartData.at(-1)?.balance ?? 0,
+      depletedBeforePlanEnd: outcome.depletedBeforeTarget,
+    });
   };
 
   if (!fitsTarget(0)) return 0;
@@ -564,17 +589,25 @@ export function generateGuidance(rawInputs: CalculatorInputs, results: Calculato
       });
     }
 
-    const endAge = getEndAge(inputs);
-    const yearsInPlan = Math.max(1, (inputs.retirementAge - inputs.currentAge) + (endAge - inputs.retirementAge));
-    const expenseReduction = (gap / (yearsInPlan * 12)) * 12;
-    const percentReduction = (expenseReduction / ((inputs.monthlyExpenses ?? 0) * 12)) * 100;
+    const enteredMonthlySpending = Math.max(0, inputs.monthlyExpenses ?? 0);
+    const projectionSupportedMonthly = Math.max(
+      0,
+      results.sustainableMonthlySpending ?? 0,
+    );
+    const practicalMonthlyIncrement = 100;
+    const roundedSupportedMonthly = Math.floor(
+      projectionSupportedMonthly / practicalMonthlyIncrement,
+    ) * practicalMonthlyIncrement;
+    const enteredAnnualSpending = Math.round(enteredMonthlySpending * 12 / 100) * 100;
+    const supportedAnnualSpending = roundedSupportedMonthly * 12;
+    const annualReduction = Math.max(0, enteredAnnualSpending - supportedAnnualSpending);
 
-    if (percentReduction < 50) {
+    if (annualReduction > 0) {
       items.push({
         type: 'expenses',
-        title: 'Reduce expenses',
-        description: `Cutting expenses by ${Math.round(percentReduction)}% would help close the gap.`,
-        value: `-${Math.round(percentReduction)}%`
+        title: 'Test a lower spending plan',
+        description: `Entered spending is $${enteredAnnualSpending.toLocaleString()}/year. This monthly projection supports about $${supportedAnnualSpending.toLocaleString()}/year, an estimated reduction of $${annualReduction.toLocaleString()}/year based on your selected assumptions.`,
+        value: `≈$${supportedAnnualSpending.toLocaleString()}/yr`
       });
     }
   }
@@ -592,6 +625,11 @@ interface MonteCarloResult {
   chartData: ChartDataPoint[];
   successProbability: number;
   requiredForSuccess: number;
+}
+
+interface SimulatedPath {
+  balances: number[];
+  depletedBeforePlanEnd: boolean;
 }
 
 export interface CalculationOptions {
@@ -618,7 +656,7 @@ function simulatePath(
   inputs: CalculatorInputs,
   startingBalance: number,
   random: () => number,
-): number[] {
+): SimulatedPath {
   const strategy = STRATEGIES[inputs.investmentStrategy];
   const retirementStrategy = inputs.retirementStrategyEnabled
     ? STRATEGIES[inputs.retirementStrategy]
@@ -630,6 +668,7 @@ function simulatePath(
   let balance = startingBalance;
   let monthlyContrib = (inputs.monthlyContribution ?? 0) + (inputs.employerContribution ?? 0);
   const balances: number[] = [];
+  let depletedBeforePlanEnd = false;
 
   let retirementStartBalance = 0;
 
@@ -687,13 +726,22 @@ function simulatePath(
         });
 
         const monthlyReturn = sampleLognormalMonthlyReturn(muMonthlyLog, sigmaMonthly, random);
-        balance = balance * (1 + monthlyReturn) - withdrawalFromPortfolio;
-        if (balance < 0) balance = 0;
+        const balanceBeforeWithdrawal = balance * (1 + monthlyReturn);
+        balance = balanceBeforeWithdrawal - withdrawalFromPortfolio;
+        if (balance <= 0) {
+          balance = 0;
+          if (
+            monthIndexFromRetirement < totalMonthsFromRetirement - 1 ||
+            withdrawalFromPortfolio > balanceBeforeWithdrawal + 0.01
+          ) {
+            depletedBeforePlanEnd = true;
+          }
+        }
       }
     }
   }
 
-  return balances;
+  return { balances, depletedBeforePlanEnd };
 }
 
 function runMonteCarlo(inputs: CalculatorInputs, random: () => number): MonteCarloResult {
@@ -702,13 +750,13 @@ function runMonteCarlo(inputs: CalculatorInputs, random: () => number): MonteCar
   const ages: number[] = [];
   for (let age = inputs.currentAge; age <= endAge; age++) ages.push(age);
 
-  const allPaths: number[][] = [];
+  const allPaths: SimulatedPath[] = [];
   for (let i = 0; i < MONTE_CARLO_RUNS; i++) {
     allPaths.push(simulatePath(inputs, inputs.currentSavings ?? 0, random));
   }
 
   const chartData: ChartDataPoint[] = ages.map((age, idx) => {
-    const balancesAtAge = allPaths.map(path => path[idx] ?? 0).sort((a, b) => a - b);
+    const balancesAtAge = allPaths.map(path => path.balances[idx] ?? 0).sort((a, b) => a - b);
     return {
       age,
       balance: balancesAtAge[Math.floor(MONTE_CARLO_RUNS * 0.5)],
@@ -720,8 +768,10 @@ function runMonteCarlo(inputs: CalculatorInputs, random: () => number): MonteCar
     };
   });
 
-  const finalBalances = allPaths.map(path => path[path.length - 1] ?? 0);
-  const successCount = finalBalances.filter(b => b > 0).length;
+  const successCount = allPaths.filter(path => evaluatePlanPathSuccess(inputs, {
+    endingBalance: path.balances.at(-1) ?? 0,
+    depletedBeforePlanEnd: path.depletedBeforePlanEnd,
+  })).length;
   const successProbability = successCount / MONTE_CARLO_RUNS;
 
   let low = (inputs.currentSavings ?? 0) * 0.5;
@@ -734,7 +784,10 @@ function runMonteCarlo(inputs: CalculatorInputs, random: () => number): MonteCar
 
     for (let i = 0; i < 200; i++) {
       const path = simulatePath(inputs, mid, random);
-      if ((path[path.length - 1] ?? 0) > 0) successes++;
+      if (evaluatePlanPathSuccess(inputs, {
+        endingBalance: path.balances.at(-1) ?? 0,
+        depletedBeforePlanEnd: path.depletedBeforePlanEnd,
+      })) successes++;
     }
 
     if (successes / 200 >= 0.85) {
@@ -777,7 +830,9 @@ export function calculateRetirement(
   const targetStatus = inputs.spendingRule === 'die_with_zero' && !inputs.monteCarloEnabled
     ? assessTarget(inputs, generateProjectionDetails(inputs)) : undefined;
   const checkpoints = generateCheckpoints(inputs, chartData, targetStatus);
-  const sustainableMonthlySpending = calculateSustainableMonthlySpending(inputs);
+  const sustainableMonthlySpending = gap < 0 || inputs.spendingRule === 'die_with_zero'
+    ? calculateSustainableMonthlySpending(inputs)
+    : undefined;
 
   return {
     requiredSavings,
@@ -788,6 +843,8 @@ export function calculateRetirement(
     checkpoints,
     successProbability,
     sustainableMonthlySpending,
-    targetStatus
+    targetStatus,
+    planEndAge: getEndAge(inputs),
+    requiredEndingBalance: getRequiredEndingBalance(inputs),
   };
 }

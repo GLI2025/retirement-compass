@@ -21,10 +21,11 @@ export function OtherIncomeSourcesSection({ inputs, updateInput }: Props) {
 
       <p className="text-sm text-muted-foreground mb-4">
         Add any additional income you expect during retirement — especially a
-        pension.
+        pension. Enter each monthly amount in today&apos;s dollars.
         <span className="block mt-2">
           <strong>Pension tip:</strong> Add your pension starting at your
-          retirement age. Turn COLA on only if your pension increases over time.
+          retirement age. With COLA on, it grows from your current age to preserve
+          today&apos;s buying power. With COLA off, it stays a fixed nominal payment.
         </span>
       </p>
 

@@ -18,6 +18,8 @@ interface PortfolioChartProps {
   monteCarloEnabled?: boolean;
   successProbability?: number;
   dieWithZeroTargetAge?: number;
+  planEndAge: number;
+  requiredEndingBalance: number;
 }
 
 const formatCurrency = (value: number) => {
@@ -75,7 +77,9 @@ export function PortfolioChart({
   ssClaimAge, 
   monteCarloEnabled,
   successProbability,
-  dieWithZeroTargetAge
+  dieWithZeroTargetAge,
+  planEndAge,
+  requiredEndingBalance,
 }: PortfolioChartProps) {
   const isMobile = useIsMobile();
   const depletionAge = dieWithZeroTargetAge
@@ -98,9 +102,9 @@ export function PortfolioChart({
         {monteCarloEnabled && successProbability !== undefined && (
   <div
     className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30"
-    title="Stress test across simulated market histories. 'Held up' means your savings stayed above $0 through age 95."
+    title={`A successful path stays funded through age ${planEndAge}${requiredEndingBalance > 0 ? ` and finishes with at least ${formatCurrency(requiredEndingBalance)}` : ''}.`}
   >
-    <span className="text-xs text-muted-foreground">Plan held up:</span>
+    <span className="text-xs text-muted-foreground">Successful paths:</span>
     <span
       className={`text-sm font-bold ${
         successProbability >= 0.85 ? "text-emerald-400" :

@@ -88,7 +88,7 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StepInput
-              label="Monthly Amount"
+              label="Monthly amount (today’s dollars)"
               value={income.monthlyAmount}
               onChange={(v) => updateIncome(income.id, { monthlyAmount: v })}
               min={0}
@@ -134,7 +134,7 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
                   className="data-[state=checked]:bg-primary"
                 />
                 <span className="text-sm">
-                  {income.hasCola ? 'COLA applied' : 'Fixed amount'}
+                  {income.hasCola ? 'COLA from current age' : 'Fixed nominal amount'}
                 </span>
               </div>
             </div>
@@ -191,7 +191,7 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
             </div>
 
             <StepInput
-              label="Monthly Amount"
+              label="Monthly amount (today’s dollars)"
               value={newIncome.monthlyAmount || 1000}
               onChange={(v) => setNewIncome(prev => ({ ...prev, monthlyAmount: v }))}
               min={0}
@@ -219,7 +219,7 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
                   className="data-[state=checked]:bg-primary"
                 />
                 <span className="text-sm">
-                  {newIncome.hasCola ? 'COLA applied' : 'Fixed amount'}
+                  {newIncome.hasCola ? 'COLA from current age' : 'Fixed nominal amount'}
                 </span>
               </div>
             </div>
