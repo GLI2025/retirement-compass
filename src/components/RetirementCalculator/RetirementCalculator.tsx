@@ -237,6 +237,9 @@ export function RetirementCalculator() {
           />
         </section>
 
+        {/* Retirement Outlook */}
+        <ResultsSummary results={results} inputs={inputs} />
+
         {/* Portfolio Chart */}
         <div ref={chartRef}>
           <PortfolioChart
@@ -283,12 +286,9 @@ export function RetirementCalculator() {
           )}
         </section>
 
-        {/* Results Summary with Export Button */}
-        <div className="space-y-4">
-         <ResultsSummary results={results} inputs={inputs} />
-          <div className="flex justify-center">
-            <ExportPDFButton results={results} inputs={inputs} chartRef={chartRef} />
-          </div>
+        {/* Export Button */}
+        <div className="flex justify-center">
+          <ExportPDFButton results={results} inputs={inputs} chartRef={chartRef} />
         </div>
 
         {/* Income Checkpoints */}
