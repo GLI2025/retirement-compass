@@ -90,7 +90,7 @@ export function CalculatorNavigation({ children }: CalculatorNavigationProps) {
   return (
     <div
       ref={containerRef}
-      className="relative inline-block mb-4"
+      className="relative flex w-full flex-col items-center mb-4"
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
       }}
