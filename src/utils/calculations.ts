@@ -72,7 +72,7 @@ function getEndAge(inputs: CalculatorInputs): number {
 // SS benefit input is assumed to be in "today's dollars" (real).
 // If inflation + COLA are enabled, we convert it to nominal dollars at each future age
 // so it stays comparable to inflated expenses.
-function calculateSSIncome(inputs: CalculatorInputs, age: number): number {
+export function calculateSSIncome(inputs: CalculatorInputs, age: number): number {
   if (!inputs.ssEnabled || age < inputs.ssClaimAge) return 0;
 
   let ssBenefit = inputs.ssMonthlyBenefit ?? 0;
@@ -85,7 +85,7 @@ function calculateSSIncome(inputs: CalculatorInputs, age: number): number {
   return ssBenefit;
 }
 
-function calculateOtherIncome(inputs: CalculatorInputs, age: number): number {
+export function calculateOtherIncome(inputs: CalculatorInputs, age: number): number {
   const list = inputs.otherIncome ?? [];
   return list.reduce((total, income) => {
     if (age >= income.startAge && (!income.endAge || age <= income.endAge)) {

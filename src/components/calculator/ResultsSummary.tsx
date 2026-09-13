@@ -1,4 +1,6 @@
 import type { CalculatorInputs, CalculatorResults } from '@/types/calculator';
+import { useState } from 'react';
+import { calculateSSIncome, calculateOtherIncome } from '@/utils/calculations';
 import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown, Target, Wallet } from 'lucide-react';
 import { yearsFromNow, toTodayDollars } from '@/utils/money';
@@ -20,6 +22,7 @@ const formatCurrency = (value: number) => {
 };
 
 export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
+  const [combineIncome, setCombineIncome] = useState(false);
   const {
     requiredSavings,
     projectedAtRetirement,
@@ -81,6 +84,14 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
     : fromPortfolioNominal;
 
   const bufferToday = Math.max(0, inputs.dieWithZero?.bufferAmount ?? 0);
+  const incomeInTodayDollars = (amount: number, age: number) => inputs.inflationEnabled
+    ? toTodayDollars(amount, yearsFromNow(inputs.currentAge, age), inputs.inflationRate)
+    : amount;
+  const ssDisplayAge = Math.max(inputs.retirementAge, inputs.ssClaimAge);
+  const incomeChangeAges = Array.from(new Set([
+    ...(inputs.ssEnabled ? [inputs.ssClaimAge] : []),
+    ...inputs.otherIncome.flatMap(income => [income.startAge, ...(income.endAge ? [income.endAge + 1] : [])]),
+  ])).filter(age => age > inputs.retirementAge).sort((a, b) => a - b);
 
   return (
     <div className="space-y-4">
@@ -215,9 +226,8 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
               Your spending plan at retirement (today’s dollars)
             </h3>
             <p className="text-xs text-muted-foreground">
-              Shown at age {retireCp?.age ?? inputs.retirementAge}. If prices rise over time, we
-              convert future dollars back into today’s buying power — so this stays comparable to
-              what you spend now.
+              Spending and portfolio withdrawals are shown at age {retireCp?.age ?? inputs.retirementAge}.
+              Income amounts show their timing below. All amounts are in today’s buying power.
             </p>
           </div>
         </div>
@@ -229,12 +239,59 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
           </div>
 
           <div>
-            <div className="text-xs text-muted-foreground">Social Security + other income</div>
-            <div className="text-xl font-bold">{formatCurrency(guaranteedToday)}/mo</div>
-            {inputs.ssEnabled && inputs.ssClaimAge > inputs.retirementAge && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Social Security starts at age {inputs.ssClaimAge}.
-              </p>
+            <label className="inline-flex items-center gap-2 text-xs text-muted-foreground mb-2">
+              <input type="checkbox" checked={combineIncome}
+                onChange={event => setCombineIncome(event.target.checked)} />
+              Combine income
+            </label>
+            {combineIncome ? (
+              <div className="text-sm">
+                <div>Social Security + other income</div>
+                <strong>{formatCurrency(guaranteedToday)}/mo at age {inputs.retirementAge}</strong>
+                {incomeChangeAges.map(age => (
+                  <span key={age} className="block mt-1 text-xs text-muted-foreground">
+                    Age {age}: {formatCurrency(incomeInTodayDollars(
+                      calculateSSIncome(inputs, age) + calculateOtherIncome(inputs, age), age
+                    ))}/mo combined
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3 text-sm">
+                <div>
+                  <div className="text-muted-foreground">Social Security</div>
+                  {inputs.ssEnabled ? (
+                    <>
+                      <strong>{formatCurrency(incomeInTodayDollars(calculateSSIncome(inputs, ssDisplayAge), ssDisplayAge))}/mo</strong>
+                      <p className="text-xs text-muted-foreground">
+                        {inputs.ssClaimAge > inputs.retirementAge
+                          ? `Starts at age ${inputs.ssClaimAge} · not included at retirement`
+                          : `Included at retirement · starts at age ${inputs.ssClaimAge}`}
+                      </p>
+                    </>
+                  ) : <span className="text-xs text-muted-foreground">Not included in this plan</span>}
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Other income</div>
+                  {inputs.otherIncome.length === 0
+                    ? <span className="text-xs text-muted-foreground">None entered</span>
+                    : inputs.otherIncome.map(income => {
+                      const age = Math.max(inputs.currentAge, income.startAge);
+                      const amount = incomeInTodayDollars(calculateOtherIncome(
+                        { ...inputs, otherIncome: [income] }, age
+                      ), age);
+                      return (
+                        <p key={income.id} className="mt-1 text-xs">
+                          {income.label || 'Other income'}: <strong>{formatCurrency(amount)}/mo</strong>
+                          <span className="block text-muted-foreground">
+                            From age {income.startAge}{income.endAge ? ` through ${income.endAge}` : ' onward'}
+                            {income.startAge > inputs.retirementAge ? ' · starts after retirement' : ''}
+                          </span>
+                        </p>
+                      );
+                    })}
+                </div>
+              </div>
             )}
           </div>
 
