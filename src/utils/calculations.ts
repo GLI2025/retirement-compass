@@ -302,11 +302,6 @@ function calculateRequiredSavings(inputs: CalculatorInputs): number {
     totalPV += annualNetExpenses / Math.pow(1 + nominalRate, year);
   }
 
-  if (inputs.spendingRule === 'die_with_zero') {
-    const targetBalance = getDieWithZeroTargetBalance(inputs);
-    totalPV += targetBalance / Math.pow(1 + nominalRate, retirementYears);
-  }
-
   return totalPV;
 }
 
