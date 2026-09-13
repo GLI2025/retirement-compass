@@ -23,6 +23,26 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
   const { requiredSavings, projectedAtRetirement, gap, successProbability, checkpoints } = results;
 
   const isSurplus = gap >= 0;
+  const shortfallPercent = requiredSavings > 0 ? Math.abs(gap) / requiredSavings : 0;
+  const outlook = isSurplus ? 'on-track' : shortfallPercent <= 0.1 ? 'close' : 'short';
+
+  const outlookContent = {
+    'on-track': {
+      eyebrow: 'On track',
+      headline: `You have an estimated ${formatCurrency(gap)} cushion at retirement.`,
+      detail: 'Your projected savings meet or exceed the amount this plan estimates you will need.',
+    },
+    close: {
+      eyebrow: 'Close',
+      headline: `You are within ${Math.round(shortfallPercent * 100)}% of your retirement target.`,
+      detail: `The estimated shortfall is ${formatCurrency(Math.abs(gap))}. A modest change may be enough to close it.`,
+    },
+    short: {
+      eyebrow: 'Short',
+      headline: `Your plan has an estimated ${formatCurrency(Math.abs(gap))} shortfall at retirement.`,
+      detail: 'Focus first on the savings path and retirement income need shown below.',
+    },
+  }[outlook];
 
   // Monte Carlo “confidence” line
   const hasMC = typeof successProbability === 'number';
@@ -55,6 +75,55 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
 
   return (
     <div className="space-y-4">
+      <section
+        className={cn(
+          'glass-card border-2 p-4 sm:p-6',
+          outlook === 'on-track' && 'border-success/30 bg-success/5',
+          outlook === 'close' && 'border-warning/30 bg-warning/5',
+          outlook === 'short' && 'border-destructive/30 bg-destructive/5'
+        )}
+        aria-labelledby="retirement-outlook-heading"
+      >
+        <div className="flex flex-col gap-5">
+          <div>
+            <p
+              className={cn(
+                'text-sm font-semibold uppercase tracking-wide',
+                outlook === 'on-track' && 'text-success',
+                outlook === 'close' && 'text-warning',
+                outlook === 'short' && 'text-destructive'
+              )}
+            >
+              Retirement outlook: {outlookContent.eyebrow}
+            </p>
+            <h2 id="retirement-outlook-heading" className="mt-1 text-2xl font-bold sm:text-3xl">
+              {outlookContent.headline}
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+              {outlookContent.detail}
+            </p>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold">The two biggest drivers</h3>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-border/70 bg-background/60 p-4">
+                <p className="text-sm font-medium">1. Your savings path</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  You are projected to have <strong className="text-foreground">{formatCurrency(projectedAtRetirement)}</strong> at age {inputs.retirementAge}, compared with <strong className="text-foreground">{formatCurrency(requiredSavings)}</strong> needed.
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/70 bg-background/60 p-4">
+                <p className="text-sm font-medium">2. Your retirement income need</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Your plan needs <strong className="text-foreground">{formatCurrency(spendingToday)}/mo</strong> in today&apos;s buying power. Guaranteed income covers <strong className="text-foreground">{formatCurrency(guaranteedToday)}/mo</strong>, leaving <strong className="text-foreground">{formatCurrency(fromPortfolioToday)}/mo</strong> for investments.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Top row: existing 3 cards */}
       <div className="grid gap-4 sm:grid-cols-3">
         {/* Required */}
