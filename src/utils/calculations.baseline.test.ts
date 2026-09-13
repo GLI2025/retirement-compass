@@ -105,6 +105,45 @@ describe('retirement calculator baselines', () => {
 });
 
 describe('spending-rule baselines', () => {
+  it.each([
+    [4600, 0, 'depleted'],
+    [923, 0, 'met'],
+    [750, 100000, 'met'],
+    [850, 100000, 'buffer-short'],
+  ] as const)('aligns headline and ending status for spending %s and buffer %s', (monthlyExpenses, bufferAmount, expected) => {
+    const inputs: CalculatorInputs = {
+      ...DEFAULT_INPUTS, retirementAge: 50, monthlyExpenses,
+      spendingRule: 'die_with_zero', dieWithZero: { targetAge: 95, bufferAmount },
+    };
+    const result = calculateRetirement(inputs);
+    expect(result.targetStatus).toBe(expected);
+    expect(result.isOnTrack).toBe(expected === 'met');
+    expect(result.gap >= 0).toBe(expected === 'met');
+    const end = result.checkpoints.at(-1)!;
+    expect(end.targetStatus).toBe(expected);
+    expect(end.stressLevel).toBe(expected === 'met' ? 'good' : expected === 'depleted' ? 'bad' : 'warn');
+    if (expected === 'met') {
+      expect(end.portfolioBalance / Math.pow(1.03, 50)).toBeCloseTo(bufferAmount, 0);
+    }
+    if (expected === 'buffer-short') {
+      expect(end.portfolioBalance).toBeGreaterThan(0);
+      expect(end.portfolioBalance / Math.pow(1.03, 50)).toBeLessThan(bufferAmount);
+    }
+  });
+
+  it('uses later deposits in required savings without double counting retirement deposits', () => {
+    const inputs: CalculatorInputs = {
+      ...DEFAULT_INPUTS, retirementAge: 50, monthlyExpenses: 750,
+      spendingRule: 'die_with_zero', dieWithZero: { targetAge: 95, bufferAmount: 100000 },
+    };
+    const base = calculateRetirement(inputs);
+    const atRetirement = calculateRetirement({ ...inputs, oneTimeDeposits: [{ id: 'r', type: 'other', ageReceived: 50, amount: 10000 }] });
+    const later = calculateRetirement({ ...inputs, oneTimeDeposits: [{ id: 'l', type: 'other', ageReceived: 60, amount: 10000 }] });
+    expect(atRetirement.requiredSavings).toBeCloseTo(base.requiredSavings, 2);
+    expect(atRetirement.projectedAtRetirement - base.projectedAtRetirement).toBeCloseTo(10000, 2);
+    expect(later.requiredSavings).toBeLessThan(base.requiredSavings);
+  });
+
   it('offers usable spending for defaults retiring at 50 with DWZ', () => {
     const inputs: CalculatorInputs = {
       ...DEFAULT_INPUTS,

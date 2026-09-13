@@ -135,7 +135,7 @@ interface DeterministicProjection {
   depletedBeforeTarget: boolean;
 }
 
-function generateProjectionDetails(inputs: CalculatorInputs): DeterministicProjection {
+function generateProjectionDetails(inputs: CalculatorInputs, retirementBalance?: number): DeterministicProjection {
   const data: ChartDataPoint[] = [];
   let depletedBeforeTarget = false;
 
@@ -151,11 +151,13 @@ function generateProjectionDetails(inputs: CalculatorInputs): DeterministicProje
   const endAge = getEndAge(inputs);
   const totalMonthsFromRetirement = Math.max(0, (endAge - inputs.retirementAge) * 12);
 
-  for (let age = inputs.currentAge; age <= endAge; age++) {
+  if (retirementBalance !== undefined) balance = retirementBalance;
+  for (let age = retirementBalance === undefined ? inputs.currentAge : inputs.retirementAge; age <= endAge; age++) {
     const deposits = (inputs.oneTimeDeposits ?? [])
       .filter(d => d.ageReceived === age)
       .reduce((sum, d) => sum + (d.amount ?? 0), 0);
-    balance += deposits;
+    // The supplied retirement balance already includes deposits at retirement.
+    if (retirementBalance === undefined || age !== inputs.retirementAge) balance += deposits;
 
     data.push({ age, balance: Math.max(0, balance) });
     if (age === endAge) break;
@@ -197,10 +199,12 @@ function generateProjectionDetails(inputs: CalculatorInputs): DeterministicProje
           assumedMonthlyReturn: monthlyReturn
         });
 
-        balance = balance * (1 + monthlyReturn) - withdrawalFromPortfolio;
+        const balanceBeforeWithdrawal = balance * (1 + monthlyReturn);
+        balance = balanceBeforeWithdrawal - withdrawalFromPortfolio;
         if (balance <= 0) {
           balance = 0;
-          if (monthIndexFromRetirement < totalMonthsFromRetirement - 1) {
+          if (monthIndexFromRetirement < totalMonthsFromRetirement - 1 ||
+              withdrawalFromPortfolio > 0 && balanceBeforeWithdrawal < withdrawalFromPortfolio - 0.01) {
             depletedBeforeTarget = true;
           }
         }
@@ -215,11 +219,16 @@ function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
   return generateProjectionDetails(inputs).chartData;
 }
 
+function assessTarget(inputs: CalculatorInputs, outcome: DeterministicProjection) {
+  if (outcome.depletedBeforeTarget) return 'depleted' as const;
+  const target = getDieWithZeroTargetBalance(inputs);
+  const ending = outcome.chartData.at(-1)?.balance ?? 0;
+  return ending >= target - Math.max(0.01, target * 1e-9)
+    ? 'met' as const : 'buffer-short' as const;
+}
+
 function calculateSustainableMonthlySpending(inputs: CalculatorInputs): number | undefined {
   if (inputs.spendingRule !== 'die_with_zero') return undefined;
-
-  const targetBalance = getDieWithZeroTargetBalance(inputs);
-  const tolerance = Math.max(0.01, targetBalance * 1e-9);
 
   const fitsTarget = (monthlyExpenses: number) => {
     const outcome = generateProjectionDetails({
@@ -227,8 +236,7 @@ function calculateSustainableMonthlySpending(inputs: CalculatorInputs): number |
       monthlyExpenses,
       monteCarloEnabled: false,
     });
-    const endingBalance = outcome.chartData.at(-1)?.balance ?? 0;
-    return !outcome.depletedBeforeTarget && endingBalance >= targetBalance - tolerance;
+    return assessTarget(inputs, outcome) === 'met';
   };
 
   if (!fitsTarget(0)) return 0;
@@ -258,6 +266,21 @@ function calculateSustainableMonthlySpending(inputs: CalculatorInputs): number |
 // ------------------------------
 
 function calculateRequiredSavings(inputs: CalculatorInputs): number {
+  if (inputs.spendingRule === 'die_with_zero') {
+    const fits = (balance: number) => assessTarget(
+      inputs, generateProjectionDetails(inputs, balance)
+    ) === 'met';
+    if (fits(0)) return 0;
+    let low = 0;
+    let high = Math.max(1, calculateProjectedAtRetirement(inputs));
+    while (!fits(high)) high *= 2;
+    for (let iteration = 0; iteration < 50; iteration++) {
+      const mid = (low + high) / 2;
+      if (fits(mid)) high = mid;
+      else low = mid;
+    }
+    return high;
+  }
   const endAge = getEndAge(inputs);
   const retirementYears = Math.max(0, endAge - inputs.retirementAge);
 
@@ -364,7 +387,7 @@ function labelForAge(inputs: CalculatorInputs, age: number): string {
   return labels.length ? labels.join(' / ') : `At Age ${age}`;
 }
 
-function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint[]): IncomeCheckpoint[] {
+function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint[], targetStatus?: CalculatorResults['targetStatus']): IncomeCheckpoint[] {
   const ages = getCheckpointAges(inputs);
   const endAge = getEndAge(inputs);
   const depletionAge = chartData.find(
@@ -456,7 +479,7 @@ function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint
       status = 'warn';
     }
   } else if (inputs.spendingRule === 'die_with_zero') {
-    status = depletesBeforeTarget
+    status = targetStatus ? (targetStatus === 'met' ? 'good' : targetStatus === 'buffer-short' ? 'warn' : 'bad') : depletesBeforeTarget
       ? 'bad'
       : (isPlanEnd && balance >= 1 ? 'warn' : 'good');
   } else {
@@ -482,6 +505,7 @@ function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint
     withdrawalRate: actualWithdrawalRate,
     stressLevel: status,
     isPlanEnd,
+    targetStatus: isPlanEnd ? targetStatus : undefined,
     targetWithdrawalRate,
     currentBaselineWithdrawalRate,
     lowerGuardrailRate,
@@ -740,7 +764,9 @@ export function calculateRetirement(rawInputs: CalculatorInputs): CalculatorResu
     chartData = generateProjection(inputs);
   }
 
-  const checkpoints = generateCheckpoints(inputs, chartData);
+  const targetStatus = inputs.spendingRule === 'die_with_zero' && !inputs.monteCarloEnabled
+    ? assessTarget(inputs, generateProjectionDetails(inputs)) : undefined;
+  const checkpoints = generateCheckpoints(inputs, chartData, targetStatus);
   const sustainableMonthlySpending = calculateSustainableMonthlySpending(inputs);
 
   return {
@@ -751,6 +777,7 @@ export function calculateRetirement(rawInputs: CalculatorInputs): CalculatorResu
     chartData,
     checkpoints,
     successProbability,
-    sustainableMonthlySpending
+    sustainableMonthlySpending,
+    targetStatus
   };
 }

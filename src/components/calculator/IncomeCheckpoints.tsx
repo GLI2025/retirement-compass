@@ -79,7 +79,10 @@ export function IncomeCheckpoints({ checkpoints, inputs }: IncomeCheckpointsProp
 
               {c.isPlanEnd ? (
                 <p className="mt-3 text-sm text-muted-foreground">
-                  Portfolio drawdown target reached. Spending after this age is outside this plan.
+                  {c.targetStatus === 'met' ? 'Target met.' : c.targetStatus === 'buffer-short'
+                    ? 'Spending funded, buffer short.' : c.targetStatus === 'depleted'
+                    ? 'Portfolio depleted early.' : 'End of projection.'}
+                  {' '}Spending after this age is outside this plan.
                 </p>
               ) : (
               <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
