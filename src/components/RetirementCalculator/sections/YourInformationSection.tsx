@@ -22,9 +22,15 @@ export function YourInformationSection({ inputs, updateInput }: Props) {
         <StepInput
           label="Current Age"
           value={inputs.currentAge}
-          onChange={(v) => updateInput("currentAge", v)}
+          onChange={(v) => {
+            updateInput("currentAge", v);
+
+            if (inputs.retirementAge <= v) {
+              updateInput("retirementAge", v + 1);
+            }
+          }}
           min={18}
-          max={80}
+          max={79}
           step={1}
           tooltip="Your current age in years"
         />
@@ -34,7 +40,7 @@ export function YourInformationSection({ inputs, updateInput }: Props) {
           value={inputs.retirementAge}
           onChange={(v) => updateInput("retirementAge", v)}
           helperText="Pension tip: set this to the age your pension starts."
-          min={inputs.currentAge + 1}
+          min={Math.min(inputs.currentAge + 1, 80)}
           max={80}
           step={1}
           tooltip="When you plan to retire"
