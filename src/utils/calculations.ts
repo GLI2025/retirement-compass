@@ -104,7 +104,7 @@ function calculateMonthlyExpenses(inputs: CalculatorInputs, age: number): number
   // Fixed-rate mortgage is nominal (does NOT inflate). Lifestyle expenses inflate.
 
   const baseExpenses = inputs.monthlyExpenses ?? 0;
-  const mortgage = inputs.currentMortgagePayment ?? 0;
+  const mortgage = inputs.housePayoffEnabled ? inputs.currentMortgagePayment ?? 0 : 0;
 
   // A) Lifestyle Base = total expenses - mortgage
   const lifestyleBase = Math.max(0, baseExpenses - mortgage);
@@ -248,7 +248,9 @@ function calculateSustainableMonthlySpending(inputs: CalculatorInputs): number |
     else high = midpoint;
   }
 
-  return low;
+  // Whole dollars can be copied into the spending input without rounding up
+  // beyond the calculated limit.
+  return Math.floor(low);
 }
 
 // ------------------------------
@@ -465,6 +467,8 @@ function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint
     if (actualWithdrawalRate >= badThreshold) status = 'bad';
     else if (actualWithdrawalRate >= warnThreshold) status = 'warn';
   }
+
+  if (balance < 1 && spendingGap > 0.5 && !isPlanEnd) status = 'bad';
 
   return {
     age,

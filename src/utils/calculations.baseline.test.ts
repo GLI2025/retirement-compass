@@ -105,6 +105,26 @@ describe('retirement calculator baselines', () => {
 });
 
 describe('spending-rule baselines', () => {
+  it('offers usable spending for defaults retiring at 50 with DWZ', () => {
+    const inputs: CalculatorInputs = {
+      ...DEFAULT_INPUTS,
+      retirementAge: 50,
+      spendingRule: 'die_with_zero',
+      dieWithZero: { targetAge: 95, bufferAmount: 0 },
+    };
+    const results = calculateRetirement(inputs);
+    const suggested = results.sustainableMonthlySpending!;
+    expect(suggested).toBeGreaterThan(500);
+    expect(suggested).toBeLessThan(inputs.monthlyExpenses);
+    expect(Number.isInteger(suggested)).toBe(true);
+    expect(results.checkpoints[0].monthlyNeed / Math.pow(1.03, 5)).toBeCloseTo(4600);
+    expect(results.checkpoints[0].ssIncome).toBe(0);
+    const adjusted = calculateRetirement({ ...inputs, monthlyExpenses: suggested });
+    expect(adjusted.chartData.filter(p => p.age >= 50 && p.age < 95).every(p => p.balance > 0)).toBe(true);
+    expect(adjusted.chartData.at(-1)!.balance).toBeLessThan(1);
+    expect(calculateRetirement({ ...inputs, currentMortgagePayment: 0 }).chartData).toEqual(results.chartData);
+  });
+
   const context = {
     age: 70,
     monthIndexFromRetirement: 60,

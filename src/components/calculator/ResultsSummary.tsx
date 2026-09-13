@@ -212,7 +212,7 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
           <Wallet className="w-5 h-5 text-primary" />
           <div>
             <h3 className="font-semibold">
-              Your Monthly Retirement Income (today’s buying power)
+              Your spending plan at retirement (today’s dollars)
             </h3>
             <p className="text-xs text-muted-foreground">
               Shown at age {retireCp?.age ?? inputs.retirementAge}. If prices rise over time, we
@@ -229,8 +229,13 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
           </div>
 
           <div>
-            <div className="text-xs text-muted-foreground">Income you can count on</div>
+            <div className="text-xs text-muted-foreground">Social Security + other income</div>
             <div className="text-xl font-bold">{formatCurrency(guaranteedToday)}/mo</div>
+            {inputs.ssEnabled && inputs.ssClaimAge > inputs.retirementAge && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Social Security starts at age {inputs.ssClaimAge}.
+              </p>
+            )}
           </div>
 
           <div>
@@ -247,8 +252,8 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
           sustainableMonthlySpending !== undefined && (
             <div className="mt-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
               <p className="text-sm font-medium text-foreground">
-                Spending that fits your target: approximately{' '}
-                <strong>{formatCurrency(sustainableMonthlySpending)}/mo</strong>
+                Try planned spending of{' '}
+                <strong>${sustainableMonthlySpending.toLocaleString()}/mo</strong>
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 This estimate aims to reach age {inputs.dieWithZero?.targetAge ?? 95}{' '}
@@ -256,6 +261,8 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
                   ? `with a ${formatCurrency(bufferToday)} buffer in today's dollars.`
                   : 'and finish near $0.'}{' '}
                 The graph still uses your entered {formatCurrency(inputs.monthlyExpenses)}/mo.
+                {' '}Change your monthly spending input to test this estimate. Based on assumed
+                returns, not a guarantee.
               </p>
             </div>
           )}
