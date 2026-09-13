@@ -140,20 +140,89 @@ describe('spending-rule baselines', () => {
     ).toBe(4400);
   });
 
-  it('keeps die-with-zero spending at least as high as baseline need', () => {
+  it('never reduces requested spending and increases it only when affordable', () => {
     const dieWithZeroInputs: CalculatorInputs = {
       ...DEFAULT_INPUTS,
       spendingRule: 'die_with_zero',
       dieWithZero: { targetAge: 95 },
     };
 
-    expect(applySpendingRule(dieWithZeroInputs, context)).toBeCloseTo(4000, 2);
+    expect(applySpendingRule(dieWithZeroInputs, context)).toBe(4000);
     expect(
       applySpendingRule(dieWithZeroInputs, {
         ...context,
         baselinePortfolioWithdrawal: 1000,
       }),
     ).toBeCloseTo(3244.79, 2);
+  });
+
+  it('shows early depletion rather than reducing requested spending', () => {
+    const dieWithZeroInputs: CalculatorInputs = {
+      ...DEFAULT_INPUTS,
+      currentAge: 64,
+      retirementAge: 65,
+      monthlyExpenses: 2000,
+      currentSavings: 12000,
+      monthlyContribution: 0,
+      employerContribution: 0,
+      investmentStrategy: 'conservative',
+      retirementStrategyEnabled: true,
+      retirementStrategy: 'conservative',
+      inflationEnabled: false,
+      ssEnabled: false,
+      housePayoffEnabled: false,
+      currentMortgagePayment: 0,
+      spendingRule: 'die_with_zero',
+      dieWithZero: { targetAge: 70 },
+      monteCarloEnabled: false,
+    };
+
+    const results = calculateRetirement(dieWithZeroInputs);
+    const retirementCheckpoint = results.checkpoints.find(({ age }) => age === 65);
+
+    expect(results.chartData.at(-1)?.age).toBe(70);
+    expect(results.chartData.at(-1)?.balance).toBeLessThan(1);
+    expect(retirementCheckpoint?.fromPortfolio).toBe(2000);
+    expect(retirementCheckpoint?.spendingGap).toBe(0);
+    expect(retirementCheckpoint?.stressLevel).toBe('bad');
+    expect(results.chartData.find(({ balance }) => balance < 1)?.age).toBeLessThan(70);
+    expect(results.checkpoints.at(-1)?.isPlanEnd).toBe(true);
+    expect(results.checkpoints.at(-1)?.stressLevel).toBe('bad');
+  });
+
+  it('preserves the selected ending buffer and calculates spending that fits', () => {
+    const bufferedInputs: CalculatorInputs = {
+      ...DEFAULT_INPUTS,
+      currentAge: 64,
+      retirementAge: 65,
+      monthlyExpenses: 2000,
+      currentSavings: 12000,
+      monthlyContribution: 0,
+      employerContribution: 0,
+      investmentStrategy: 'conservative',
+      retirementStrategyEnabled: true,
+      retirementStrategy: 'conservative',
+      inflationEnabled: false,
+      ssEnabled: false,
+      housePayoffEnabled: false,
+      currentMortgagePayment: 0,
+      spendingRule: 'die_with_zero',
+      dieWithZero: { targetAge: 70, bufferAmount: 5000 },
+      monteCarloEnabled: false,
+    };
+
+    const results = calculateRetirement(bufferedInputs);
+    expect(results.sustainableMonthlySpending).toBeGreaterThan(0);
+    expect(results.sustainableMonthlySpending).toBeLessThan(2000);
+
+    const adjustedResults = calculateRetirement({
+      ...bufferedInputs,
+      monthlyExpenses: results.sustainableMonthlySpending ?? 0,
+    });
+    const endingBalance = adjustedResults.chartData.at(-1)?.balance ?? 0;
+
+    expect(endingBalance).toBeCloseTo(5000, 0);
+    expect(adjustedResults.chartData.slice(0, -1).every(({ balance }) => balance > 0)).toBe(true);
   });
 });
 

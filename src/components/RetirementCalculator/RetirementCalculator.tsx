@@ -248,6 +248,9 @@ export function RetirementCalculator() {
             ssClaimAge={inputs.ssEnabled ? inputs.ssClaimAge : undefined}
             monteCarloEnabled={inputs.monteCarloEnabled}
             successProbability={results.successProbability}
+            dieWithZeroTargetAge={
+              inputs.spendingRule === 'die_with_zero' ? inputs.dieWithZero?.targetAge : undefined
+            }
           />
         </div>
 

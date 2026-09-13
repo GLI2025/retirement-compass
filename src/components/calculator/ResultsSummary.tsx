@@ -20,7 +20,14 @@ const formatCurrency = (value: number) => {
 };
 
 export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
-  const { requiredSavings, projectedAtRetirement, gap, successProbability, checkpoints } = results;
+  const {
+    requiredSavings,
+    projectedAtRetirement,
+    gap,
+    successProbability,
+    checkpoints,
+    sustainableMonthlySpending
+  } = results;
 
   const isSurplus = gap >= 0;
   const shortfallPercent = requiredSavings > 0 ? Math.abs(gap) / requiredSavings : 0;
@@ -72,6 +79,8 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
   const fromPortfolioToday = inputs.inflationEnabled
     ? toTodayDollars(fromPortfolioNominal, y, inputs.inflationRate)
     : fromPortfolioNominal;
+
+  const bufferToday = Math.max(0, inputs.dieWithZero?.bufferAmount ?? 0);
 
   return (
     <div className="space-y-4">
@@ -130,7 +139,9 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
         <div className="glass-card p-4 sm:p-6 text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Target className="w-5 h-5 text-muted-foreground" />
-            <span className="text-sm font-medium text-muted-foreground">Required Savings</span>
+            <span className="text-sm font-medium text-muted-foreground">
+              Required Savings
+            </span>
           </div>
           <div className="text-2xl sm:text-3xl font-bold">
             {formatCurrency(requiredSavings)}
@@ -213,7 +224,7 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
 
         <div className="grid gap-4 sm:grid-cols-3 text-center">
           <div>
-            <div className="text-xs text-muted-foreground">Monthly spending</div>
+            <div className="text-xs text-muted-foreground">Planned monthly spending</div>
             <div className="text-xl font-bold">{formatCurrency(spendingToday)}/mo</div>
           </div>
 
@@ -223,10 +234,31 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
           </div>
 
           <div>
-            <div className="text-xs text-muted-foreground">Needed from investments</div>
+            <div className="text-xs text-muted-foreground">
+              {inputs.spendingRule === 'die_with_zero'
+                ? 'Requested from investments'
+                : 'Needed from investments'}
+            </div>
             <div className="text-xl font-bold">{formatCurrency(fromPortfolioToday)}/mo</div>
           </div>
         </div>
+
+        {inputs.spendingRule === 'die_with_zero' &&
+          sustainableMonthlySpending !== undefined && (
+            <div className="mt-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
+              <p className="text-sm font-medium text-foreground">
+                Spending that fits your target: approximately{' '}
+                <strong>{formatCurrency(sustainableMonthlySpending)}/mo</strong>
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                This estimate aims to reach age {inputs.dieWithZero?.targetAge ?? 95}{' '}
+                {bufferToday > 0
+                  ? `with a ${formatCurrency(bufferToday)} buffer in today's dollars.`
+                  : 'and finish near $0.'}{' '}
+                The graph still uses your entered {formatCurrency(inputs.monthlyExpenses)}/mo.
+              </p>
+            </div>
+          )}
 
         {!retireCp && (
           <p className="text-xs text-muted-foreground mt-3">

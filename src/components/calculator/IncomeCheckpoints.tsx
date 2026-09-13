@@ -46,6 +46,7 @@ export function IncomeCheckpoints({ checkpoints, inputs }: IncomeCheckpointsProp
 
           // Actual withdrawal from portfolio (after spending rule)
           const withdrawMonthly = Math.max(0, c.fromPortfolio ?? 0);
+          const spendingGapMonthly = Math.max(0, c.spendingGap ?? 0);
 
           // Convert future dollars back into today's buying power (for anchoring)
           const futureCostToday = inputs.inflationEnabled
@@ -76,6 +77,11 @@ export function IncomeCheckpoints({ checkpoints, inputs }: IncomeCheckpointsProp
                 </div>
               </div>
 
+              {c.isPlanEnd ? (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Portfolio drawdown target reached. Spending after this age is outside this plan.
+                </p>
+              ) : (
               <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
                 <div title={annualTip(incomeMonthly)}>
                   <span className="opacity-75">Income:</span> {formatCurrency(incomeMonthly)}/mo
@@ -102,14 +108,26 @@ export function IncomeCheckpoints({ checkpoints, inputs }: IncomeCheckpointsProp
                 </div>
 
                 <div title={annualTip(withdrawMonthly)}>
-                  <span className="opacity-75">Portfolio Withdrawal:</span>{' '}
+                  <span className="opacity-75">
+                    {inputs.spendingRule === 'die_with_zero'
+                      ? 'Target-Paced Withdrawal:'
+                      : 'Portfolio Withdrawal:'}
+                  </span>{' '}
                   {withdrawMonthly > 0 ? `${formatCurrency(withdrawMonthly)}/mo` : 'None'}
                 </div>
+
+                {spendingGapMonthly > 0.5 && (
+                  <div className="col-span-2 text-destructive" title={annualTip(spendingGapMonthly)}>
+                    <span className="font-medium">Planned Spending Gap:</span>{' '}
+                    {formatCurrency(spendingGapMonthly)}/mo
+                  </div>
+                )}
 
                 <div className="col-span-2" title="At current withdrawal rate">
                   <span className="opacity-75">Runway:</span> {runway}
                 </div>
               </div>
+              )}
             </div>
           );
         })}

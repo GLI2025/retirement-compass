@@ -17,6 +17,7 @@ interface PortfolioChartProps {
   ssClaimAge?: number;
   monteCarloEnabled?: boolean;
   successProbability?: number;
+  dieWithZeroTargetAge?: number;
 }
 
 const formatCurrency = (value: number) => {
@@ -29,9 +30,22 @@ const formatCurrency = (value: number) => {
   return `$${value.toFixed(0)}`;
 };
 
-const CustomTooltip = ({ active, payload, label, monteCarloEnabled }: any) => {
+interface TooltipPayloadItem {
+  dataKey?: string;
+  value?: number;
+  payload?: ChartDataPoint;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: string | number;
+  monteCarloEnabled?: boolean;
+}
+
+const CustomTooltip = ({ active, payload, label, monteCarloEnabled }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
-    const mainValue = payload.find((p: any) => p.dataKey === 'balance' || p.dataKey === 'p50');
+    const mainValue = payload.find(p => p.dataKey === 'balance' || p.dataKey === 'p50');
     
     return (
       <div className="glass-card p-3 border border-primary/30">
@@ -60,14 +74,27 @@ export function PortfolioChart({
   retirementAge, 
   ssClaimAge, 
   monteCarloEnabled,
-  successProbability 
+  successProbability,
+  dieWithZeroTargetAge
 }: PortfolioChartProps) {
   const isMobile = useIsMobile();
+  const depletionAge = dieWithZeroTargetAge
+    ? data.find(point => point.age >= retirementAge && point.balance < 1)?.age
+    : undefined;
+  const depletesEarly = depletionAge !== undefined && depletionAge < dieWithZeroTargetAge;
 
   return (
     <div className="glass-card p-4 sm:p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">Portfolio Projection</h3>
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <h3 className="text-lg font-semibold">Portfolio Projection</h3>
+          {depletesEarly && (
+            <p className="mt-1 text-sm font-medium text-destructive">
+              At your requested spending, the portfolio reaches $0 around age {depletionAge},
+              before the age-{dieWithZeroTargetAge} target.
+            </p>
+          )}
+        </div>
         {monteCarloEnabled && successProbability !== undefined && (
   <div
     className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30"
@@ -164,6 +191,20 @@ export function PortfolioChart({
                 fontSize: isMobile ? 10 : 12
               }}
             />
+
+            {depletesEarly && (
+              <ReferenceLine
+                x={depletionAge}
+                stroke="hsl(0, 75%, 58%)"
+                strokeDasharray="5 5"
+                label={{
+                  value: 'Runs out',
+                  position: 'top',
+                  fill: 'hsl(0, 75%, 58%)',
+                  fontSize: isMobile ? 10 : 12
+                }}
+              />
+            )}
             
             {/* SS claim age marker */}
             {ssClaimAge && ssClaimAge !== retirementAge && (

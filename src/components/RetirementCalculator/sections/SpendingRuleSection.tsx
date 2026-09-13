@@ -42,7 +42,7 @@ export function SpendingRuleSection({ inputs, updateInput }: Props) {
               }
 
               if (rule === "die_with_zero" && !inputs.dieWithZero) {
-                updateInput("dieWithZero", { targetAge: 95 });
+                updateInput("dieWithZero", { targetAge: 95, bufferAmount: 0 });
               }
             }}
           >
@@ -99,17 +99,37 @@ export function SpendingRuleSection({ inputs, updateInput }: Props) {
       )}
 
       {inputs.spendingRule === "die_with_zero" && inputs.dieWithZero && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <StepInput
-            label="Target Age (spend down to ~$0)"
-            value={inputs.dieWithZero.targetAge}
-            onChange={(v) =>
-              updateInput("dieWithZero", { ...inputs.dieWithZero!, targetAge: v })
-            }
-            min={inputs.retirementAge}
-            max={100}
-            step={1}
-          />
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Uses your planned retirement spending as the minimum withdrawal. If your
+            portfolio cannot support that spending through the target age, the chart shows
+            when it runs out. If you can afford more, withdrawals increase toward your chosen
+            ending buffer.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <StepInput
+              label="Portfolio Target Age"
+              value={inputs.dieWithZero.targetAge}
+              onChange={(v) =>
+                updateInput("dieWithZero", { ...inputs.dieWithZero!, targetAge: v })
+              }
+              min={inputs.retirementAge + 1}
+              max={100}
+              step={1}
+            />
+            <StepInput
+              label="Ending Portfolio Buffer"
+              value={inputs.dieWithZero.bufferAmount ?? 0}
+              onChange={(v) =>
+                updateInput("dieWithZero", { ...inputs.dieWithZero!, bufferAmount: v })
+              }
+              min={0}
+              max={10000000}
+              step={10000}
+              prefix="$"
+              helperText="Amount to preserve at the target age, in today's dollars."
+            />
+          </div>
         </div>
       )}
     </div>
