@@ -32,6 +32,8 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
     sustainableMonthlySpending
   } = results;
 
+  const requiredSavingsAboveLimit = results.requiredSavingsStatus === 'no-solution';
+  const requiredSavingsLabel = `${formatCurrency(requiredSavings)}${requiredSavingsAboveLimit ? '+' : ''}`;
   const isSurplus = gap >= 0;
   const hasMC = typeof successProbability === 'number';
   const heldUpCount = hasMC ? Math.round((successProbability ?? 0) * MC_RUNS) : 0;
@@ -51,6 +53,10 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
     detail: inputs.spendingRule === 'die_with_zero'
       ? `A path succeeds only if it stays funded through age ${results.planEndAge} and finishes with at least your ${formatCurrency(inputs.dieWithZero?.bufferAmount ?? 0)} ending buffer in today's dollars.`
       : `A path succeeds only if it stays funded through age ${results.planEndAge}.`,
+  } : requiredSavingsAboveLimit ? {
+    eyebrow: 'Beyond calculation range',
+    headline: `This plan needs more than ${formatCurrency(requiredSavings)} at retirement.`,
+    detail: 'The monthly projection did not find a funded starting balance within the calculator’s explicit search limit.',
   } : results.targetStatus ? {
     met: { eyebrow: 'Target met', headline: 'Your spending and ending buffer fit this projection.', detail: 'Based on the selected investment returns and income timing.' },
     'buffer-short': { eyebrow: 'Buffer short', headline: 'Spending funded, buffer short.', detail: 'The portfolio lasts through the target age but finishes below your selected buffer.' },
@@ -144,7 +150,7 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
               <div className="rounded-lg border border-border/70 bg-background/60 p-4">
                 <p className="text-sm font-medium">1. Your savings path</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  You are projected to have <strong className="text-foreground">{formatCurrency(projectedAtRetirement)}</strong> at age {inputs.retirementAge}, compared with <strong className="text-foreground">{formatCurrency(requiredSavings)}</strong> needed.
+                  You are projected to have <strong className="text-foreground">{formatCurrency(projectedAtRetirement)}</strong> at age {inputs.retirementAge}, compared with <strong className="text-foreground">{requiredSavingsLabel}</strong> needed.
                 </p>
               </div>
               <div className="rounded-lg border border-border/70 bg-background/60 p-4">
@@ -169,7 +175,7 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
             </span>
           </div>
           <div className="text-2xl sm:text-3xl font-bold">
-            {formatCurrency(requiredSavings)}
+            {requiredSavingsLabel}
           </div>
           <p className="text-xs text-muted-foreground mt-2">
             at retirement to maintain lifestyle

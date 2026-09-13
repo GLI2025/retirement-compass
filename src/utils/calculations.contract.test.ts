@@ -8,6 +8,9 @@ import {
   calculateSSIncome,
   evaluatePlanPathSuccess,
   generateGuidance,
+  REQUIRED_SAVINGS_SOLVER_DEFAULTS,
+  simulateDeterministicRetirement,
+  solveRequiredSavings,
 } from '@/utils/calculations';
 
 function contractInputs(overrides: Partial<CalculatorInputs> = {}): CalculatorInputs {
@@ -405,5 +408,209 @@ describe('projection-backed spending guidance', () => {
     );
     expect(spendingGuidance?.description).toContain('estimated reduction');
     expect(spendingGuidance?.description).not.toContain('close the gap');
+  });
+});
+
+describe('unified required-savings contracts', () => {
+  const retirementInputs = (overrides: Partial<CalculatorInputs> = {}) => contractInputs({
+    currentAge: 64,
+    retirementAge: 65,
+    currentSavings: 0,
+    monthlyExpenses: 2500,
+    ...overrides,
+  });
+
+  it('solves fixed spending with a balance that remains funded exactly through plan end', () => {
+    const inputs = retirementInputs();
+    const solution = solveRequiredSavings(inputs);
+    const outcome = simulateDeterministicRetirement(inputs, solution.requiredSavings);
+
+    expect(solution.status).toBe('solved');
+    expect(outcome.depletedBeforeTarget).toBe(false);
+    expect(evaluatePlanPathSuccess(inputs, {
+      endingBalance: outcome.planEndBalance,
+      depletedBeforePlanEnd: outcome.depletedBeforeTarget,
+    })).toBe(true);
+    expect(outcome.planEndBalance).toBeLessThan(1);
+  });
+
+  it('fails a fixed-spending balance meaningfully below the solved requirement', () => {
+    const inputs = retirementInputs();
+    const solution = solveRequiredSavings(inputs);
+    const outcome = simulateDeterministicRetirement(
+      inputs,
+      solution.requiredSavings - 10_000,
+    );
+
+    expect(outcome.depletedBeforeTarget).toBe(true);
+    expect(evaluatePlanPathSuccess(inputs, {
+      endingBalance: outcome.planEndBalance,
+      depletedBeforePlanEnd: outcome.depletedBeforeTarget,
+    })).toBe(false);
+  });
+
+  it('runs guardrail adjustments while solving the guardrails requirement', () => {
+    const inputs = retirementInputs({
+      monthlyExpenses: 4000,
+      spendingRule: 'guardrails',
+      guardrails: { lowerBand: 0.75, upperBand: 1.15, cutPct: 0.1, raisePct: 0.1 },
+    });
+    const solution = solveRequiredSavings(inputs);
+    const outcome = simulateDeterministicRetirement(inputs, solution.requiredSavings);
+
+    expect(solution.status).toBe('solved');
+    expect(outcome.depletedBeforeTarget).toBe(false);
+    expect(outcome.guardrailAdjustmentMonths).toBeGreaterThan(0);
+  });
+
+  it('solves Die With Zero to the inflation-adjusted selected ending buffer', () => {
+    const inputs = retirementInputs({
+      spendingRule: 'die_with_zero',
+      inflationEnabled: true,
+      inflationRate: 3,
+      dieWithZero: { targetAge: 90, bufferAmount: 100_000 },
+    });
+    const solution = solveRequiredSavings(inputs);
+    const outcome = simulateDeterministicRetirement(inputs, solution.requiredSavings);
+    const results = calculateRetirement(inputs);
+
+    expect(solution.status).toBe('solved');
+    expect(outcome.depletedBeforeTarget).toBe(false);
+    expect(outcome.planEndBalance).toBeGreaterThanOrEqual(
+      results.requiredEndingBalance - solution.convergenceTolerance,
+    );
+  });
+
+  it('reduces Required Savings when Social Security begins later in retirement', () => {
+    const withoutSocialSecurity = retirementInputs({ monthlyExpenses: 4000 });
+    const withSocialSecurity = {
+      ...withoutSocialSecurity,
+      ssEnabled: true,
+      ssClaimAge: 70,
+      ssMonthlyBenefit: 1800,
+    };
+
+    expect(solveRequiredSavings(withSocialSecurity).requiredSavings)
+      .toBeLessThan(solveRequiredSavings(withoutSocialSecurity).requiredSavings);
+  });
+
+  it('reduces Required Savings when other income begins later in retirement', () => {
+    const withoutOtherIncome = retirementInputs({ monthlyExpenses: 4000 });
+    const withOtherIncome = {
+      ...withoutOtherIncome,
+      otherIncome: [{
+        id: 'pension',
+        label: 'Pension',
+        monthlyAmount: 1500,
+        startAge: 70,
+        hasCola: false,
+      }],
+    };
+
+    expect(solveRequiredSavings(withOtherIncome).requiredSavings)
+      .toBeLessThan(solveRequiredSavings(withoutOtherIncome).requiredSavings);
+  });
+
+  it('uses a post-retirement deposit but never resurrects an earlier depleted path', () => {
+    const withoutDeposit = retirementInputs({ monthlyExpenses: 3000 });
+    const withDeposit = {
+      ...withoutDeposit,
+      oneTimeDeposits: [{
+        id: 'later',
+        type: 'other' as const,
+        label: 'Later deposit',
+        amount: 150_000,
+        ageReceived: 70,
+      }],
+    };
+    const depletedThenRestored = simulateDeterministicRetirement({
+      ...withDeposit,
+      oneTimeDeposits: [{
+        id: 'large-later',
+        type: 'other',
+        label: 'Large later deposit',
+        amount: 1_000_000,
+        ageReceived: 70,
+      }],
+    }, 1000);
+
+    expect(solveRequiredSavings(withDeposit).requiredSavings)
+      .toBeLessThan(solveRequiredSavings(withoutDeposit).requiredSavings);
+    expect(depletedThenRestored.depletedBeforeTarget).toBe(true);
+    expect(depletedThenRestored.planEndBalance).toBeGreaterThan(0);
+  });
+
+  it('reduces Required Savings after a mortgage payoff lowers expenses', () => {
+    const mortgageContinues = retirementInputs({ monthlyExpenses: 5000 });
+    const mortgagePaidOff = retirementInputs({
+      monthlyExpenses: 5000,
+      housePayoffEnabled: true,
+      housePayoffAge: 70,
+      currentMortgagePayment: 1500,
+    });
+
+    expect(solveRequiredSavings(mortgagePaidOff).requiredSavings)
+      .toBeLessThan(solveRequiredSavings(mortgageContinues).requiredSavings);
+  });
+
+  it('uses the chart retirement balance as Projected Savings', () => {
+    const results = calculateRetirement(contractInputs({
+      currentAge: 60,
+      retirementAge: 65,
+      currentSavings: 100_000,
+      monthlyContribution: 600,
+      oneTimeDeposits: [{
+        id: 'retirement-deposit',
+        type: 'other',
+        label: 'Retirement deposit',
+        amount: 25_000,
+        ageReceived: 65,
+      }],
+    }));
+
+    expect(balanceAt(results, 65)).toBeCloseTo(results.projectedAtRetirement, 6);
+  });
+
+  it.each([
+    ['funded', 1_000_000, true],
+    ['underfunded', 50_000, false],
+  ] as const)('keeps the %s gap and headline status aligned with the deterministic chart', (_label, currentSavings, expectedFunded) => {
+    const results = calculateRetirement(retirementInputs({ currentSavings }));
+
+    expect(results.deterministicFunded).toBe(expectedFunded);
+    expect(results.isOnTrack).toBe(expectedFunded);
+    expect(results.gap >= 0).toBe(expectedFunded);
+    expect(results.gap).toBeCloseTo(
+      results.projectedAtRetirement - results.requiredSavings,
+      6,
+    );
+    expect(results.depletionAge === undefined).toBe(expectedFunded);
+    expect(results.planEndBalance).toBeCloseTo(balanceAt(results, results.planEndAge), 6);
+  });
+
+  it('honors solver bounds, convergence tolerance, and no-solution behavior', () => {
+    const inputs = retirementInputs();
+    const tolerance = 1;
+    const solution = solveRequiredSavings(inputs, { convergenceTolerance: tolerance });
+    const solvedOutcome = simulateDeterministicRetirement(inputs, solution.requiredSavings);
+    const belowTolerance = simulateDeterministicRetirement(
+      inputs,
+      Math.max(0, solution.requiredSavings - tolerance * 2),
+    );
+    const noSolution = solveRequiredSavings(
+      retirementInputs({ monthlyExpenses: 10_000_000 }),
+      { maximumBalance: 100_000 },
+    );
+
+    expect(solution.iterations).toBeLessThanOrEqual(
+      REQUIRED_SAVINGS_SOLVER_DEFAULTS.maximumIterations,
+    );
+    expect(solvedOutcome.depletedBeforeTarget).toBe(false);
+    expect(belowTolerance.depletedBeforeTarget).toBe(true);
+    expect(noSolution).toMatchObject({
+      requiredSavings: 100_000,
+      maximumBalance: 100_000,
+      status: 'no-solution',
+    });
   });
 });

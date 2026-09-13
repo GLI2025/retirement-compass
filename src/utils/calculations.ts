@@ -152,93 +152,181 @@ function calculateMonthlyExpenses(inputs: CalculatorInputs, age: number): number
 // Deterministic projection
 // ------------------------------
 
-interface DeterministicProjection {
+export interface DeterministicProjection {
   chartData: ChartDataPoint[];
   depletedBeforeTarget: boolean;
+  depletionAge?: number;
+  planEndBalance: number;
+  guardrailAdjustmentMonths: number;
 }
 
-function generateProjectionDetails(inputs: CalculatorInputs, retirementBalance?: number): DeterministicProjection {
-  const data: ChartDataPoint[] = [];
-  let depletedBeforeTarget = false;
+interface AccumulationProjection {
+  chartData: ChartDataPoint[];
+  retirementBalance: number;
+}
 
+export interface RequiredSavingsSolverOptions {
+  maximumBalance?: number;
+  convergenceTolerance?: number;
+  maximumIterations?: number;
+}
+
+export interface RequiredSavingsSolution {
+  requiredSavings: number;
+  status: 'solved' | 'no-solution';
+  iterations: number;
+  convergenceTolerance: number;
+  maximumBalance: number;
+}
+
+export const REQUIRED_SAVINGS_SOLVER_DEFAULTS = {
+  maximumBalance: 100_000_000,
+  convergenceTolerance: 0.01,
+  maximumIterations: 80,
+} as const;
+
+function depositsAtAge(inputs: CalculatorInputs, age: number): number {
+  return (inputs.oneTimeDeposits ?? [])
+    .filter((deposit) => deposit.ageReceived === age)
+    .reduce((sum, deposit) => sum + (deposit.amount ?? 0), 0);
+}
+
+function projectToRetirement(inputs: CalculatorInputs): AccumulationProjection {
   const strategy = STRATEGIES[inputs.investmentStrategy];
-  const retirementStrategy = inputs.retirementStrategyEnabled
-    ? STRATEGIES[inputs.retirementStrategy]
-    : strategy;
+  const monthlyReturn = Math.pow(1 + strategy.expectedReturn, 1 / 12) - 1;
+  const chartData: ChartDataPoint[] = [];
 
   let balance = inputs.currentSavings ?? 0;
-  let monthlyContrib = (inputs.monthlyContribution ?? 0) + (inputs.employerContribution ?? 0);
-  let retirementStartBalance = 0;
+  let monthlyContribution =
+    (inputs.monthlyContribution ?? 0) + (inputs.employerContribution ?? 0);
+
+  for (let age = inputs.currentAge; age < inputs.retirementAge; age++) {
+    balance += depositsAtAge(inputs, age);
+    chartData.push({ age, balance: Math.max(0, balance) });
+
+    for (let month = 0; month < 12; month++) {
+      balance = balance * (1 + monthlyReturn) + monthlyContribution;
+    }
+
+    if (inputs.annualIncreaseEnabled) {
+      monthlyContribution *= 1 + (inputs.annualIncreaseRate ?? 0) / 100;
+    }
+  }
+
+  balance += depositsAtAge(inputs, inputs.retirementAge);
+  chartData.push({ age: inputs.retirementAge, balance: Math.max(0, balance) });
+
+  return { chartData, retirementBalance: balance };
+}
+
+export function simulateDeterministicRetirement(
+  rawInputs: CalculatorInputs,
+  initialRetirementBalance: number,
+): DeterministicProjection {
+  const inputs = normalizeAgeInputs(rawInputs);
+  const data: ChartDataPoint[] = [];
+  let depletedBeforeTarget = false;
+  let depletionAge: number | undefined;
+  let guardrailAdjustmentMonths = 0;
+
+  const retirementStrategy = inputs.retirementStrategyEnabled
+    ? STRATEGIES[inputs.retirementStrategy]
+    : STRATEGIES[inputs.investmentStrategy];
+  const monthlyReturn = Math.pow(1 + retirementStrategy.expectedReturn, 1 / 12) - 1;
+
+  let balance = Math.max(0, initialRetirementBalance);
+  const retirementStartBalance = balance;
 
   const endAge = getEndAge(inputs);
   const totalMonthsFromRetirement = Math.max(0, (endAge - inputs.retirementAge) * 12);
 
-  if (retirementBalance !== undefined) balance = retirementBalance;
-  for (let age = retirementBalance === undefined ? inputs.currentAge : inputs.retirementAge; age <= endAge; age++) {
-    const deposits = (inputs.oneTimeDeposits ?? [])
-      .filter(d => d.ageReceived === age)
-      .reduce((sum, d) => sum + (d.amount ?? 0), 0);
-    // The supplied retirement balance already includes deposits at retirement.
-    if (retirementBalance === undefined || age !== inputs.retirementAge) balance += deposits;
+  for (let age = inputs.retirementAge; age <= endAge; age++) {
+    // The supplied starting balance already includes deposits received at retirement.
+    if (age > inputs.retirementAge) balance += depositsAtAge(inputs, age);
 
     data.push({ age, balance: Math.max(0, balance) });
     if (age === endAge) break;
 
-    if (age < inputs.retirementAge) {
-      const annualReturn = strategy.expectedReturn;
-      const monthlyReturn = Math.pow(1 + annualReturn, 1 / 12) - 1;
+    const monthlyExpenses = calculateMonthlyExpenses(inputs, age);
+    const ssIncome = calculateSSIncome(inputs, age);
+    const otherIncome = calculateOtherIncome(inputs, age);
+    const baselinePortfolioWithdrawal = Math.max(
+      0,
+      monthlyExpenses - (ssIncome + otherIncome),
+    );
 
-      for (let month = 0; month < 12; month++) {
-        balance = balance * (1 + monthlyReturn) + monthlyContrib;
+    for (let month = 0; month < 12; month++) {
+      const monthIndexFromRetirement = (age - inputs.retirementAge) * 12 + month;
+      const remainingMonths = Math.max(
+        1,
+        totalMonthsFromRetirement - monthIndexFromRetirement,
+      );
+
+      const withdrawalFromPortfolio = applySpendingRule(inputs, {
+        age,
+        monthIndexFromRetirement,
+        remainingMonths,
+        portfolioBalance: balance,
+        retirementStartBalance,
+        baselinePortfolioWithdrawal,
+        assumedMonthlyReturn: monthlyReturn,
+      });
+
+      if (
+        inputs.spendingRule === 'guardrails' &&
+        Math.abs(withdrawalFromPortfolio - baselinePortfolioWithdrawal) > 0.01
+      ) {
+        guardrailAdjustmentMonths++;
       }
 
-      if (inputs.annualIncreaseEnabled) {
-        monthlyContrib = monthlyContrib * (1 + (inputs.annualIncreaseRate ?? 0) / 100);
-      }
-    } else {
-      if (retirementStartBalance === 0) retirementStartBalance = balance;
+      const balanceBeforeWithdrawal = balance * (1 + monthlyReturn);
+      balance = balanceBeforeWithdrawal - withdrawalFromPortfolio;
 
-      const annualReturn = retirementStrategy.expectedReturn;
-      const monthlyReturn = Math.pow(1 + annualReturn, 1 / 12) - 1;
+      if (balance <= 0) {
+        const depletedBeforeFinalMonth =
+          monthIndexFromRetirement < totalMonthsFromRetirement - 1;
+        const couldNotFundWithdrawal =
+          withdrawalFromPortfolio > balanceBeforeWithdrawal + 0.01;
 
-      const monthlyExpenses = calculateMonthlyExpenses(inputs, age);
-      const ssIncome = calculateSSIncome(inputs, age);
-      const otherIncome = calculateOtherIncome(inputs, age);
-
-      const baselinePortfolioWithdrawal = Math.max(0, monthlyExpenses - (ssIncome + otherIncome));
-
-      for (let month = 0; month < 12; month++) {
-        const monthIndexFromRetirement = (age - inputs.retirementAge) * 12 + month;
-        const remainingMonths = Math.max(1, totalMonthsFromRetirement - monthIndexFromRetirement);
-
-        const withdrawalFromPortfolio = applySpendingRule(inputs, {
-          age,
-          monthIndexFromRetirement,
-          remainingMonths,
-          portfolioBalance: balance,
-          retirementStartBalance,
-          baselinePortfolioWithdrawal,
-          assumedMonthlyReturn: monthlyReturn
-        });
-
-        const balanceBeforeWithdrawal = balance * (1 + monthlyReturn);
-        balance = balanceBeforeWithdrawal - withdrawalFromPortfolio;
-        if (balance <= 0) {
-          balance = 0;
-          if (monthIndexFromRetirement < totalMonthsFromRetirement - 1 ||
-              withdrawalFromPortfolio > 0 && balanceBeforeWithdrawal < withdrawalFromPortfolio - 0.01) {
-            depletedBeforeTarget = true;
-          }
+        balance = 0;
+        if (depletedBeforeFinalMonth || couldNotFundWithdrawal) {
+          depletedBeforeTarget = true;
+          depletionAge ??= age + (month + 1) / 12;
         }
       }
     }
   }
 
-  return { chartData: data, depletedBeforeTarget };
+  return {
+    chartData: data,
+    depletedBeforeTarget,
+    depletionAge,
+    planEndBalance: data.at(-1)?.balance ?? balance,
+    guardrailAdjustmentMonths,
+  };
 }
 
-function generateProjection(inputs: CalculatorInputs): ChartDataPoint[] {
-  return generateProjectionDetails(inputs).chartData;
+function generateProjectionDetails(
+  inputs: CalculatorInputs,
+  retirementBalance?: number,
+): DeterministicProjection {
+  if (retirementBalance !== undefined) {
+    return simulateDeterministicRetirement(inputs, retirementBalance);
+  }
+
+  const accumulation = projectToRetirement(inputs);
+  const retirement = simulateDeterministicRetirement(
+    inputs,
+    accumulation.retirementBalance,
+  );
+
+  return {
+    ...retirement,
+    chartData: [
+      ...accumulation.chartData.slice(0, -1),
+      ...retirement.chartData,
+    ],
+  };
 }
 
 function assessTarget(inputs: CalculatorInputs, outcome: DeterministicProjection) {
@@ -290,74 +378,83 @@ function calculateSustainableMonthlySpending(inputs: CalculatorInputs): number |
 // Required savings + projected at retirement
 // ------------------------------
 
+export function solveRequiredSavings(
+  rawInputs: CalculatorInputs,
+  options: RequiredSavingsSolverOptions = {},
+): RequiredSavingsSolution {
+  const inputs = normalizeAgeInputs(rawInputs);
+  const maximumBalance = Math.max(
+    0,
+    options.maximumBalance ?? REQUIRED_SAVINGS_SOLVER_DEFAULTS.maximumBalance,
+  );
+  const convergenceTolerance = Math.max(
+    Number.EPSILON,
+    options.convergenceTolerance ?? REQUIRED_SAVINGS_SOLVER_DEFAULTS.convergenceTolerance,
+  );
+  const maximumIterations = Math.max(
+    1,
+    Math.floor(options.maximumIterations ?? REQUIRED_SAVINGS_SOLVER_DEFAULTS.maximumIterations),
+  );
+
+  const fits = (balance: number) => {
+    const outcome = simulateDeterministicRetirement(inputs, balance);
+    return evaluatePlanPathSuccess(inputs, {
+      endingBalance: outcome.planEndBalance,
+      depletedBeforePlanEnd: outcome.depletedBeforeTarget,
+    });
+  };
+
+  if (fits(0)) {
+    return {
+      requiredSavings: 0,
+      status: 'solved',
+      iterations: 0,
+      convergenceTolerance,
+      maximumBalance,
+    };
+  }
+
+  let low = 0;
+  let high = Math.min(maximumBalance, 1_000_000);
+
+  while (high < maximumBalance && !fits(high)) {
+    low = high;
+    high = Math.min(maximumBalance, Math.max(high * 2, high + 1));
+  }
+
+  if (!fits(high)) {
+    return {
+      requiredSavings: maximumBalance,
+      status: 'no-solution',
+      iterations: 0,
+      convergenceTolerance,
+      maximumBalance,
+    };
+  }
+
+  let iterations = 0;
+  while (high - low > convergenceTolerance && iterations < maximumIterations) {
+    const midpoint = (low + high) / 2;
+    if (fits(midpoint)) high = midpoint;
+    else low = midpoint;
+    iterations++;
+  }
+
+  return {
+    requiredSavings: high,
+    status: 'solved',
+    iterations,
+    convergenceTolerance,
+    maximumBalance,
+  };
+}
+
 function calculateRequiredSavings(inputs: CalculatorInputs): number {
-  if (inputs.spendingRule === 'die_with_zero') {
-    const fits = (balance: number) => assessTarget(
-      inputs, generateProjectionDetails(inputs, balance)
-    ) === 'met';
-    if (fits(0)) return 0;
-    let low = 0;
-    let high = Math.max(1, calculateProjectedAtRetirement(inputs));
-    while (!fits(high)) high *= 2;
-    for (let iteration = 0; iteration < 50; iteration++) {
-      const mid = (low + high) / 2;
-      if (fits(mid)) high = mid;
-      else low = mid;
-    }
-    return high;
-  }
-  const endAge = getEndAge(inputs);
-  const retirementYears = Math.max(0, endAge - inputs.retirementAge);
-
-  const retirementStrategy = inputs.retirementStrategyEnabled
-    ? STRATEGIES[inputs.retirementStrategy]
-    : STRATEGIES[inputs.investmentStrategy];
-
-  const nominalRate = retirementStrategy.expectedReturn;
-
-  let totalPV = 0;
-  for (let year = 0; year < retirementYears; year++) {
-    const age = inputs.retirementAge + year;
-
-    const monthlyExpenses = calculateMonthlyExpenses(inputs, age);
-    const ssIncome = calculateSSIncome(inputs, age);
-    const otherIncome = calculateOtherIncome(inputs, age);
-
-    const annualNetExpenses = Math.max(0, monthlyExpenses - ssIncome - otherIncome) * 12;
-    totalPV += annualNetExpenses / Math.pow(1 + nominalRate, year);
-  }
-
-  return totalPV;
+  return solveRequiredSavings(inputs).requiredSavings;
 }
 
 function calculateProjectedAtRetirement(inputs: CalculatorInputs): number {
-  const strategy = STRATEGIES[inputs.investmentStrategy];
-  const monthlyRate = Math.pow(1 + strategy.expectedReturn, 1 / 12) - 1;
-
-  let balance = inputs.currentSavings ?? 0;
-  let monthlyContrib = (inputs.monthlyContribution ?? 0) + (inputs.employerContribution ?? 0);
-
-  for (let age = inputs.currentAge; age < inputs.retirementAge; age++) {
-    const deposits = (inputs.oneTimeDeposits ?? [])
-      .filter(d => d.ageReceived === age)
-      .reduce((sum, d) => sum + (d.amount ?? 0), 0);
-    balance += deposits;
-
-    for (let month = 0; month < 12; month++) {
-      balance = balance * (1 + monthlyRate) + monthlyContrib;
-    }
-
-    if (inputs.annualIncreaseEnabled) {
-      monthlyContrib *= 1 + (inputs.annualIncreaseRate ?? 0) / 100;
-    }
-  }
-
-  const retirementDeposits = (inputs.oneTimeDeposits ?? [])
-    .filter(d => d.ageReceived === inputs.retirementAge)
-    .reduce((sum, d) => sum + (d.amount ?? 0), 0);
-  balance += retirementDeposits;
-
-  return balance;
+  return projectToRetirement(inputs).retirementBalance;
 }
 
 // ------------------------------
@@ -811,10 +908,33 @@ export function calculateRetirement(
 ): CalculatorResults {
   const inputs = normalizeAgeInputs(rawInputs);
 
-  const requiredSavings = calculateRequiredSavings(inputs);
-  const projectedAtRetirement = calculateProjectedAtRetirement(inputs);
-  const gap = projectedAtRetirement - requiredSavings;
-  const isOnTrack = gap >= 0;
+  const accumulation = projectToRetirement(inputs);
+  const projectedAtRetirement = accumulation.retirementBalance;
+  const deterministicRetirement = simulateDeterministicRetirement(
+    inputs,
+    projectedAtRetirement,
+  );
+  const deterministicProjection: DeterministicProjection = {
+    ...deterministicRetirement,
+    chartData: [
+      ...accumulation.chartData.slice(0, -1),
+      ...deterministicRetirement.chartData,
+    ],
+  };
+
+  const requiredSavingsSolution = solveRequiredSavings(inputs);
+  const requiredSavings = requiredSavingsSolution.requiredSavings;
+  const rawGap = projectedAtRetirement - requiredSavings;
+  const gap = Math.abs(rawGap) <= requiredSavingsSolution.convergenceTolerance
+    ? 0
+    : rawGap;
+  const deterministicFunded = evaluatePlanPathSuccess(inputs, {
+    endingBalance: deterministicRetirement.planEndBalance,
+    depletedBeforePlanEnd: deterministicRetirement.depletedBeforeTarget,
+  });
+  const isOnTrack = requiredSavingsSolution.status === 'solved'
+    && deterministicFunded
+    && gap >= 0;
 
   let chartData: ChartDataPoint[];
   let successProbability: number | undefined;
@@ -824,11 +944,11 @@ export function calculateRetirement(
     chartData = mcResult.chartData;
     successProbability = mcResult.successProbability;
   } else {
-    chartData = generateProjection(inputs);
+    chartData = deterministicProjection.chartData;
   }
 
   const targetStatus = inputs.spendingRule === 'die_with_zero' && !inputs.monteCarloEnabled
-    ? assessTarget(inputs, generateProjectionDetails(inputs)) : undefined;
+    ? assessTarget(inputs, deterministicProjection) : undefined;
   const checkpoints = generateCheckpoints(inputs, chartData, targetStatus);
   const sustainableMonthlySpending = gap < 0 || inputs.spendingRule === 'die_with_zero'
     ? calculateSustainableMonthlySpending(inputs)
@@ -846,5 +966,9 @@ export function calculateRetirement(
     targetStatus,
     planEndAge: getEndAge(inputs),
     requiredEndingBalance: getRequiredEndingBalance(inputs),
+    deterministicFunded,
+    planEndBalance: deterministicRetirement.planEndBalance,
+    depletionAge: deterministicRetirement.depletionAge,
+    requiredSavingsStatus: requiredSavingsSolution.status,
   };
 }
