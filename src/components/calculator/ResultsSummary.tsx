@@ -34,9 +34,15 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
 
   const isSurplus = gap >= 0;
   const shortfallPercent = requiredSavings > 0 ? Math.abs(gap) / requiredSavings : 0;
-  const outlook = isSurplus ? 'on-track' : shortfallPercent <= 0.1 ? 'close' : 'short';
+  const outlook = results.targetStatus
+    ? (results.targetStatus === 'met' ? 'on-track' : results.targetStatus === 'buffer-short' ? 'close' : 'short')
+    : isSurplus ? 'on-track' : shortfallPercent <= 0.1 ? 'close' : 'short';
 
-  const outlookContent = {
+  const outlookContent = results.targetStatus ? {
+    met: { eyebrow: 'Target met', headline: 'Your spending and ending buffer fit this projection.', detail: 'Based on the selected investment returns and income timing.' },
+    'buffer-short': { eyebrow: 'Buffer short', headline: 'Spending funded, buffer short.', detail: 'The portfolio lasts through the target age but finishes below your selected buffer.' },
+    depleted: { eyebrow: 'Short', headline: 'Portfolio depleted early.', detail: 'Your entered spending exhausts the portfolio before the plan is complete.' },
+  }[results.targetStatus] : {
     'on-track': {
       eyebrow: 'On track',
       headline: `You have an estimated ${formatCurrency(gap)} cushion at retirement.`,

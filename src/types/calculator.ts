@@ -149,6 +149,7 @@ export interface IncomeCheckpoint {
   withdrawalRate: number;
   stressLevel: 'good' | 'warn' | 'bad';
   isPlanEnd?: boolean;
+  targetStatus?: 'met' | 'buffer-short' | 'depleted';
 
   // new guardrails detail
   targetWithdrawalRate?: number;
@@ -168,6 +169,7 @@ export interface CalculatorResults {
   checkpoints: IncomeCheckpoint[];
   successProbability?: number;
   sustainableMonthlySpending?: number;
+  targetStatus?: 'met' | 'buffer-short' | 'depleted';
 }
 
 // Guidance recommendation
