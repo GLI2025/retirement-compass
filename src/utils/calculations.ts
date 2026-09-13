@@ -12,8 +12,41 @@ import { DEFAULT_INPUTS, DEFAULT_LIFE_EXPECTANCY } from '@/lib/defaults';
 
 const LIFE_EXPECTANCY = DEFAULT_LIFE_EXPECTANCY;
 
+const MIN_CURRENT_AGE = 18;
+const MAX_RETIREMENT_AGE = 80;
+const MAX_CURRENT_AGE = MAX_RETIREMENT_AGE - 1;
+
 // Safety cap so DWZ can't run to absurd ages by accident
 const MAX_END_AGE = 120;
+
+function normalizeAgeInputs(rawInputs: CalculatorInputs): CalculatorInputs {
+  const mergedInputs: CalculatorInputs = {
+    ...DEFAULT_INPUTS,
+    ...rawInputs,
+  };
+
+  const requestedCurrentAge = Number.isFinite(mergedInputs.currentAge)
+    ? Math.round(mergedInputs.currentAge)
+    : DEFAULT_INPUTS.currentAge;
+  const currentAge = Math.min(
+    MAX_CURRENT_AGE,
+    Math.max(MIN_CURRENT_AGE, requestedCurrentAge),
+  );
+
+  const requestedRetirementAge = Number.isFinite(mergedInputs.retirementAge)
+    ? Math.round(mergedInputs.retirementAge)
+    : DEFAULT_INPUTS.retirementAge;
+  const retirementAge = Math.min(
+    MAX_RETIREMENT_AGE,
+    Math.max(currentAge + 1, requestedRetirementAge),
+  );
+
+  return {
+    ...mergedInputs,
+    currentAge,
+    retirementAge,
+  };
+}
 
 // ------------------------------
 // Helpers
@@ -383,7 +416,7 @@ function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint
 // ------------------------------
 
 export function generateGuidance(rawInputs: CalculatorInputs, results: CalculatorResults): GuidanceItem[] {
-  const inputs: CalculatorInputs = { ...DEFAULT_INPUTS, ...rawInputs };
+  const inputs = normalizeAgeInputs(rawInputs);
   const items: GuidanceItem[] = [];
 
   if (results.isOnTrack) {
@@ -400,10 +433,11 @@ export function generateGuidance(rawInputs: CalculatorInputs, results: Calculato
     const monthlyRate = Math.pow(1 + strategy.expectedReturn, 1 / 12) - 1;
     const months = yearsToRetirement * 12;
 
-    const additionalMonthly =
+    const additionalMonthly = Math.max(0,
       monthlyRate <= 0
         ? gap / Math.max(1, months)
-        : (gap * monthlyRate) / (Math.pow(1 + monthlyRate, months) - 1);
+        : (gap * monthlyRate) / (Math.pow(1 + monthlyRate, months) - 1)
+    );
 
     items.push({
       type: 'savings',
@@ -609,10 +643,7 @@ function runMonteCarlo(inputs: CalculatorInputs): MonteCarloResult {
 // ------------------------------
 
 export function calculateRetirement(rawInputs: CalculatorInputs): CalculatorResults {
-  const inputs: CalculatorInputs = {
-    ...DEFAULT_INPUTS,
-    ...rawInputs
-  };
+  const inputs = normalizeAgeInputs(rawInputs);
 
   const requiredSavings = calculateRequiredSavings(inputs);
   const projectedAtRetirement = calculateProjectedAtRetirement(inputs);

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_INPUTS } from '@/lib/defaults';
 import { applySpendingRule } from '@/lib/calculations/spendingRules';
 import type { CalculatorInputs } from '@/types/calculator';
-import { calculateRetirement } from '@/utils/calculations';
+import { calculateRetirement, generateGuidance } from '@/utils/calculations';
 
 const roundDollars = (value: number) => Math.round(value);
 const roundRate = (value: number) =>
@@ -154,5 +154,36 @@ describe('spending-rule baselines', () => {
         baselinePortfolioWithdrawal: 1000,
       }),
     ).toBeCloseTo(3244.79, 2);
+  });
+});
+
+describe('age validation regressions', () => {
+  it('normalizes retirement to at least one year after current age', () => {
+    const invalidInputs: CalculatorInputs = {
+      ...DEFAULT_INPUTS,
+      currentAge: 80,
+      retirementAge: 67,
+    };
+
+    const results = calculateRetirement(invalidInputs);
+
+    expect(results.chartData[0]?.age).toBe(79);
+    expect(results.checkpoints.some((checkpoint) => checkpoint.age === 80)).toBe(true);
+  });
+
+  it('never recommends a negative monthly savings increase', () => {
+    const invalidInputs: CalculatorInputs = {
+      ...DEFAULT_INPUTS,
+      currentAge: 80,
+      retirementAge: 67,
+    };
+
+    const results = calculateRetirement(invalidInputs);
+    const guidance = generateGuidance(invalidInputs, results);
+    const savingsGuidance = guidance.find((item) => item.type === 'savings');
+
+    expect(savingsGuidance).toBeDefined();
+    expect(savingsGuidance?.description).not.toMatch(/\$-/);
+    expect(savingsGuidance?.value).not.toMatch(/\+\$-/);
   });
 });
