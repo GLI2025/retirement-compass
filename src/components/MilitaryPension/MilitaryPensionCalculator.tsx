@@ -9,6 +9,7 @@ import {
   findPay,
   gradesFor,
 } from '@/lib/calculations/militaryPension';
+import { CalculatorNavigation } from '@/components/calculator/CalculatorNavigation';
 
 const BRANCHES: { key: MilitaryBranch; badge: string }[] = [
   { key: 'army', badge: 'ARMY' },
@@ -80,11 +81,11 @@ export function MilitaryPensionCalculator() {
             <Award className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium">DFAS 2025 Base Pay Tables</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
+          <CalculatorNavigation>
             <span className="gradient-text">Military Pension</span>
             <br />
             <span className="text-foreground">Estimator</span>
-          </h1>
+          </CalculatorNavigation>
           <p className="text-muted-foreground max-w-2xl mx-auto text-sm">
             For active-duty servicemembers under Final Pay, High-36, REDUX, or BRS. Assumes
             continuous full-time active service. Doesn't calculate taxes, VA disability offsets,

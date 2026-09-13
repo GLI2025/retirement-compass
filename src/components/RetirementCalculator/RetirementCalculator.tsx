@@ -20,6 +20,7 @@ import { GuidancePanel } from "../calculator/GuidancePanel";
 import { EducationalBox } from "../calculator/EducationalBox";
 import { ResultsSummary } from "../calculator/ResultsSummary";
 import { ResetButtons } from "../calculator/ResetButtons";
+import { CalculatorNavigation } from "../calculator/CalculatorNavigation";
 
 import { ExportPDFButton } from "../calculator/ExportPDFButton";
 
@@ -80,11 +81,11 @@ export function RetirementCalculator() {
             <span className="text-sm font-medium">A Starting Place for Retirement Planning</span>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
+          <CalculatorNavigation>
             <span className="gradient-text">Retirement Savings</span>
             <br />
             <span className="text-foreground">Calculator</span>
-          </h1>
+          </CalculatorNavigation>
 
           <p className="text-muted-foreground max-w-2xl mx-auto">
             Estimate your financial future potential. Adjust your financial picture inputs and see
