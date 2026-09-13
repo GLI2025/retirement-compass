@@ -89,7 +89,10 @@ export function SailAwayCalculator() {
               {SAILING_PRESETS.map((p) => (
                 <button
                   key={p.key}
-                  onClick={() => updateGlobal('sailingBasePreset', p.amount) || updateGlobal('sailingAdjustment', 0)}
+                    onClick={() => {
+                      updateGlobal('sailingBasePreset', p.amount);
+                      updateGlobal('sailingAdjustment', 0);
+                    }}
                   className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition ${
                     inputs.global.sailingBasePreset === p.amount
                       ? 'bg-primary text-primary-foreground border-primary'

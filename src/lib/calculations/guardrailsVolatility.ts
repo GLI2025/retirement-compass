@@ -1,4 +1,5 @@
-import { GuardrailsRunConfig, GuardrailsResults } from '@/types/guardrails';
+import type { GuardrailsResults } from '@/types/guardrails';
+import type { GuardrailsRunConfig } from '@/lib/calculations/guardrails';
 
 /* Same market model as the main engine — see calculations/guardrails.ts for the
  * authoritative version. Duplicated here (not imported) because this is a
