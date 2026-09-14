@@ -1,6 +1,10 @@
 import type { CalculatorInputs, CalculatorResults } from '@/types/calculator';
 import { useState } from 'react';
-import { calculateSSIncome, calculateOtherIncome } from '@/utils/calculations';
+import {
+  calculateSSIncome,
+  calculateOtherIncome,
+  MONTE_CARLO_RUNS,
+} from '@/utils/calculations';
 import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown, Target, Wallet } from 'lucide-react';
 import { yearsFromNow, toTodayDollars } from '@/utils/money';
@@ -11,7 +15,6 @@ interface ResultsSummaryProps {
 }
 
 const CONFIDENCE_TARGET = 0.7;
-const MC_RUNS = 1000;
 
 const formatCurrency = (value: number) => {
   if (!Number.isFinite(value)) return '$0';
@@ -36,7 +39,7 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
   const requiredSavingsLabel = `${formatCurrency(requiredSavings)}${requiredSavingsAboveLimit ? '+' : ''}`;
   const isSurplus = gap >= 0;
   const hasMC = typeof successProbability === 'number';
-  const heldUpCount = hasMC ? Math.round((successProbability ?? 0) * MC_RUNS) : 0;
+  const heldUpCount = hasMC ? Math.round((successProbability ?? 0) * MONTE_CARLO_RUNS) : 0;
   const successPercent = hasMC ? Math.round((successProbability ?? 0) * 100) : 0;
   const belowTarget = hasMC ? (successProbability ?? 0) < CONFIDENCE_TARGET : false;
   const shortfallPercent = requiredSavings > 0 ? Math.abs(gap) / requiredSavings : 0;
@@ -49,7 +52,7 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
 
   const outlookContent = hasMC ? {
     eyebrow: belowTarget ? 'Monte Carlo below target' : 'Monte Carlo target met',
-    headline: `${heldUpCount.toLocaleString()} of ${MC_RUNS.toLocaleString()} simulated paths met the complete plan target (${successPercent}%).`,
+    headline: `${heldUpCount.toLocaleString()} of ${MONTE_CARLO_RUNS.toLocaleString()} simulated paths met the complete plan target (${successPercent}%).`,
     detail: inputs.spendingRule === 'die_with_zero'
       ? `A path succeeds only if it stays funded through age ${results.planEndAge} and finishes with at least your ${formatCurrency(inputs.dieWithZero?.bufferAmount ?? 0)} ending buffer in today's dollars.`
       : `A path succeeds only if it stays funded through age ${results.planEndAge}.`,
