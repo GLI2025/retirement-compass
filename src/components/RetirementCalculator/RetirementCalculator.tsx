@@ -27,6 +27,7 @@ import { ResetButtons } from "../calculator/ResetButtons";
 import { CalculatorNavigation } from "../calculator/CalculatorNavigation";
 
 import { ExportPDFButton } from "../calculator/ExportPDFButton";
+import { LatestRequestGuard } from "@/utils/latestRequestGuard";
 
 
 export function RetirementCalculator() {
@@ -38,7 +39,7 @@ export function RetirementCalculator() {
   const [isMonteCarloRunning, setIsMonteCarloRunning] = useState(false);
   const [monteCarloError, setMonteCarloError] = useState<string>();
   const chartRef = useRef<HTMLDivElement>(null);
-  const monteCarloRequestId = useRef(0);
+  const monteCarloRequests = useRef(new LatestRequestGuard());
 
   const updateInput = <K extends keyof CalculatorInputs>(
     key: K,
@@ -65,12 +66,13 @@ export function RetirementCalculator() {
 
   useEffect(() => {
     if (!inputs.monteCarloEnabled) {
+      monteCarloRequests.current.invalidate();
       setIsMonteCarloRunning(false);
       setMonteCarloError(undefined);
       return;
     }
 
-    const requestId = ++monteCarloRequestId.current;
+    const requestId = monteCarloRequests.current.begin();
     let worker: Worker | undefined;
     setIsMonteCarloRunning(true);
     setMonteCarloError(undefined);
@@ -86,22 +88,23 @@ export function RetirementCalculator() {
         results?: CalculatorResults;
         error?: string;
       }>) => {
-        if (event.data.requestId !== monteCarloRequestId.current) return;
+        const response = monteCarloRequests.current.accept(event.data.requestId, event.data);
+        if (!response) return;
 
-        if (event.data.results) {
+        if (response.results) {
           setMonteCarloResult({
             signature: monteCarloSignature,
-            results: event.data.results,
+            results: response.results,
           });
           setMonteCarloError(undefined);
         } else {
-          setMonteCarloError(event.data.error ?? 'Monte Carlo simulation failed.');
+          setMonteCarloError(response.error ?? 'Monte Carlo simulation failed.');
         }
         setIsMonteCarloRunning(false);
       };
 
       worker.onerror = () => {
-        if (requestId !== monteCarloRequestId.current) return;
+        if (!monteCarloRequests.current.isCurrent(requestId)) return;
         setMonteCarloError('Monte Carlo simulation failed. Deterministic results remain available.');
         setIsMonteCarloRunning(false);
       };
@@ -111,6 +114,7 @@ export function RetirementCalculator() {
 
     return () => {
       window.clearTimeout(debounceTimer);
+      monteCarloRequests.current.invalidate(requestId);
       worker?.terminate();
     };
   }, [inputs, monteCarloSignature]);
