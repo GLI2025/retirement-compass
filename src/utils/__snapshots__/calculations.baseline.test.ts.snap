@@ -128,10 +128,10 @@ exports[`retirement calculator baselines > preserves an early-retirement result 
   ],
   "endingAge": 90,
   "endingBalance": 8572174,
-  "gap": 531563,
+  "gap": 572453,
   "isOnTrack": true,
   "projectedAtRetirement": 1673661,
-  "requiredSavings": 1142098,
+  "requiredSavings": 1101208,
 }
 `;
 
@@ -219,10 +219,10 @@ exports[`retirement calculator baselines > preserves income, deposit, contributi
   ],
   "endingAge": 90,
   "endingBalance": 9431130,
-  "gap": 2147612,
+  "gap": 2182151,
   "isOnTrack": true,
   "projectedAtRetirement": 3476745,
-  "requiredSavings": 1329133,
+  "requiredSavings": 1294594,
 }
 `;
 
@@ -288,9 +288,9 @@ exports[`retirement calculator baselines > preserves the default calculator resu
   ],
   "endingAge": 90,
   "endingBalance": 0,
-  "gap": -215782,
+  "gap": -184202,
   "isOnTrack": false,
   "projectedAtRetirement": 805142,
-  "requiredSavings": 1020924,
+  "requiredSavings": 989343,
 }
 `;

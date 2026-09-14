@@ -172,6 +172,10 @@ export interface CalculatorResults {
   targetStatus?: 'met' | 'buffer-short' | 'depleted';
   planEndAge: number;
   requiredEndingBalance: number;
+  deterministicFunded: boolean;
+  planEndBalance: number;
+  depletionAge?: number;
+  requiredSavingsStatus: 'solved' | 'no-solution';
 }
 
 // Guidance recommendation
