@@ -1,4 +1,3 @@
-// @ts-nocheck
 import jsPDF from 'jspdf';
 
 export interface PDFExportData {
