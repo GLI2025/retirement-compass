@@ -175,7 +175,8 @@ function findPV_TOTAL(base: BasePathParams, S0: number, target: number, randFact
     const q = successRate(res);
     best = mid;
     if (Math.abs(q - target) < 0.02) return mid;
-    q > target ? (hi = mid) : (lo = mid);
+    if (q > target) hi = mid;
+    else lo = mid;
   }
   return best;
 }
@@ -191,7 +192,8 @@ function findS_TOTAL(currentPV: number, base: BasePathParams, target: number, ra
     const q = successRate(res);
     best = mid;
     if (Math.abs(q - target) < 0.02) return mid;
-    q > target ? (lo = mid) : (hi = mid);
+    if (q > target) lo = mid;
+    else hi = mid;
   }
   return best;
 }
@@ -263,7 +265,8 @@ function findPV_LEGACY(base: BasePathParams, target: number, randFactory: RandFa
     const q = successRate(res);
     best = mid;
     if (Math.abs(q - target) < 0.02) return mid;
-    q > target ? (hi = mid) : (lo = mid);
+    if (q > target) hi = mid;
+    else lo = mid;
   }
   return best;
 }
@@ -280,7 +283,8 @@ function findW_LEGACY(
     const q = successRate(res);
     best = mid;
     if (Math.abs(q - target) < 0.02) return mid;
-    q > target ? (lo = mid) : (hi = mid);
+    if (q > target) lo = mid;
+    else hi = mid;
   }
   return best;
 }
