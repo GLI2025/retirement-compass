@@ -268,7 +268,7 @@ describe('main retirement calculator financial contracts', () => {
 });
 
 describe('Monte Carlo test scaffolding', () => {
-  it('uses exactly one 1,000-path set for a Monte Carlo result', () => {
+  it('uses exactly one 1,000-path set with no random draws at the plan-end boundary', () => {
     let randomCalls = 0;
     const random = () => {
       randomCalls += 1;
@@ -283,10 +283,42 @@ describe('Monte Carlo test scaffolding', () => {
     });
 
     const results = calculateRetirement(inputs, { random });
-    const simulatedYears = results.planEndAge - inputs.currentAge + 1;
+    const simulatedYears = results.planEndAge - inputs.currentAge;
 
     expect(MONTE_CARLO_RUNS).toBe(1000);
     expect(randomCalls).toBe(simulatedYears * 12 * 2 * MONTE_CARLO_RUNS);
+  });
+
+  it('matches the deterministic two-year path and funded status at Required Savings', () => {
+    const plan = contractInputs({
+      currentAge: 79,
+      retirementAge: 80,
+      currentSavings: 0,
+      monthlyExpenses: 3000,
+      spendingRule: 'die_with_zero',
+      dieWithZero: { targetAge: 81, bufferAmount: 0 },
+    });
+    const solution = solveRequiredSavings(plan);
+    const annualReturn = STRATEGIES[plan.investmentStrategy].expectedReturn;
+    const inputs = {
+      ...plan,
+      currentSavings: solution.requiredSavings / (1 + annualReturn),
+    };
+    const deterministic = calculateRetirement(inputs);
+    const monteCarlo = calculateRetirement(
+      { ...inputs, monteCarloEnabled: true },
+      { random: expectedReturnRandom(inputs.investmentStrategy) },
+    );
+
+    expect(solution.status).toBe('solved');
+    expect(deterministic.projectedAtRetirement).toBeCloseTo(solution.requiredSavings, 6);
+    expect(deterministic.deterministicFunded).toBe(true);
+    expect(deterministic.chartData.map(point => point.age)).toEqual([79, 80, 81]);
+    expect(monteCarlo.chartData.map(point => point.age)).toEqual([79, 80, 81]);
+    for (const age of [79, 80, 81]) {
+      expect(balanceAt(monteCarlo, age)).toBeCloseTo(balanceAt(deterministic, age), 5);
+    }
+    expect(monteCarlo.successProbability).toBe(1);
   });
 
   it('replays the same simulation when supplied the same deterministic random sequence', () => {

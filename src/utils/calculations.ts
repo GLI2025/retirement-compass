@@ -798,6 +798,7 @@ function simulatePath(
     balance += deposits;
 
     balances.push(Math.max(0, balance));
+    if (age === endAge) break;
 
     const currentStrategy = age < inputs.retirementAge ? strategy : retirementStrategy;
     const stockAlloc = currentStrategy.stockAllocation;
