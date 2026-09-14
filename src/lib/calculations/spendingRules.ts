@@ -78,25 +78,9 @@ export function applySpendingRule(inputs: CalculatorInputs, ctx: SpendingRuleCon
     return Math.max(0, withdrawal);
   }
 
-  // die_with_zero
-  // Goal: spend up (if you can) so the balance trends toward ~0 by the target end month.
-  const n = Math.max(1, ctx.remainingMonths);
-  const r = ctx.assumedMonthlyReturn ?? 0;
-  const B = Math.max(0, ctx.portfolioBalance);
-  const targetBalance = getDieWithZeroTargetBalance(inputs);
-  const targetPresentValue = targetBalance / Math.pow(1 + r, n);
-
-  // Amortization payment that reaches ~0 at month n, assuming constant r
-  // If r ~ 0: payment ≈ B / n
-  // Else: payment = B * r / (1 - (1 + r)^(-n))
-  const amortized =
-    Math.abs(r) < 1e-9
-      ? (B - targetBalance) / n
-      : ((B - targetPresentValue) * r) / (1 - Math.pow(1 + r, -n));
-
-  // Never reduce the user's planned portfolio withdrawal just to make the
-  // balance last until the target age. If the portfolio can support more,
-  // increase the withdrawal so the balance trends toward approximately $0.
-  // If it cannot, keep the requested withdrawal and show depletion early.
-  return Math.max(0, ctx.baselinePortfolioWithdrawal, amortized);
+  // Die With Zero keeps the chart tied to spending the user actually entered.
+  // The target age and buffer determine whether that path succeeds. A separate
+  // projection-backed solver estimates higher sustainable spending for the user
+  // to test without silently increasing withdrawals in the displayed path.
+  return Math.max(0, ctx.baselinePortfolioWithdrawal);
 }

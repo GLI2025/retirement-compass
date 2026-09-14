@@ -94,7 +94,7 @@ export function PortfolioChart({
           <h3 className="text-lg font-semibold">Portfolio Projection</h3>
           {depletesEarly && (
             <p className="mt-1 text-sm font-medium text-destructive">
-              At your requested spending, the portfolio reaches $0 around age {depletionAge},
+              {monteCarloEnabled ? 'The median simulated path' : 'At your requested spending, the portfolio'} reaches $0 around age {depletionAge},
               before the age-{dieWithZeroTargetAge} target.
             </p>
           )}
@@ -102,7 +102,7 @@ export function PortfolioChart({
         {monteCarloEnabled && successProbability !== undefined && (
   <div
     className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30"
-    title={`A successful path stays funded through age ${planEndAge}${requiredEndingBalance > 0 ? ` and finishes with at least ${formatCurrency(requiredEndingBalance)}` : ''}.`}
+    title={`All chart bands and this count use the same 1,000 simulated paths. A successful path stays funded through age ${planEndAge}${requiredEndingBalance > 0 ? ` and finishes with at least ${formatCurrency(requiredEndingBalance)}` : ''}.`}
   >
     <span className="text-xs text-muted-foreground">Successful paths:</span>
     <span
@@ -111,7 +111,7 @@ export function PortfolioChart({
         successProbability >= 0.7 ? "text-amber-400" : "text-red-400"
       }`}
     >
-      {Math.round(successProbability * 100)} out of 100
+      {Math.round(successProbability * 1000).toLocaleString()} / 1,000
     </span>
   </div>
 )}
@@ -123,7 +123,7 @@ export function PortfolioChart({
         <div className="flex flex-wrap gap-4 mb-4 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded bg-primary/60" />
-            <span className="text-muted-foreground">Typical market outcome</span>
+            <span className="text-muted-foreground">Median of 1,000 simulated paths</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded bg-primary/30" />

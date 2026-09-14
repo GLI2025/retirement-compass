@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_INPUTS } from '@/lib/defaults';
-import type { CalculatorInputs, CalculatorResults } from '@/types/calculator';
+import { STRATEGIES, type CalculatorInputs, type CalculatorResults } from '@/types/calculator';
 import {
   calculateOtherIncome,
   calculateRetirement,
   calculateSSIncome,
   evaluatePlanPathSuccess,
   generateGuidance,
+  getRetirementCashFlow,
   REQUIRED_SAVINGS_SOLVER_DEFAULTS,
   simulateDeterministicRetirement,
   solveRequiredSavings,
@@ -77,6 +78,28 @@ function deterministicGrowth(): () => number {
     const value = firstValue ? 0.5 : 0.25;
     firstValue = !firstValue;
     return value;
+  };
+}
+
+function expectedReturnRandom(strategy: CalculatorInputs['investmentStrategy']): () => number {
+  const allocation = STRATEGIES[strategy];
+  const annualVolatility = Math.sqrt(
+    allocation.stockAllocation ** 2 * 0.18 ** 2
+      + allocation.bondAllocation ** 2 * 0.05 ** 2,
+  );
+  const monthlyVolatility = annualVolatility / Math.sqrt(12);
+  const zScore = monthlyVolatility / 2;
+  const firstBoxMullerValue = Math.exp(-(zScore ** 2) / 2);
+  let firstValue = true;
+
+  return () => {
+    if (firstValue) {
+      firstValue = false;
+      return firstBoxMullerValue;
+    }
+
+    firstValue = true;
+    return 0;
   };
 }
 
@@ -198,7 +221,7 @@ describe('main retirement calculator financial contracts', () => {
     expect(checkpointAt(results, 65).fromPortfolio).toBe(2500);
   });
 
-  it('keeps fixed spending and die-with-zero as distinct deterministic strategies', () => {
+  it('keeps fixed spending and die-with-zero distinct through their plan targets', () => {
     const common = contractInputs({
       currentAge: 64,
       retirementAge: 65,
@@ -209,8 +232,10 @@ describe('main retirement calculator financial contracts', () => {
     const fixed = calculateRetirement({ ...common, spendingRule: 'fixed' });
     const dieWithZero = calculateRetirement({ ...common, spendingRule: 'die_with_zero' });
 
-    expect(balanceAt(fixed, 70)).toBeGreaterThan(balanceAt(dieWithZero, 70));
-    expect(balanceAt(dieWithZero, 70)).toBeLessThan(1);
+    expect(balanceAt(fixed, 70)).toBeCloseTo(balanceAt(dieWithZero, 70), 6);
+    expect(fixed.planEndAge).toBe(90);
+    expect(dieWithZero.planEndAge).toBe(70);
+    expect(dieWithZero.requiredSavings).toBeLessThan(fixed.requiredSavings);
     expect(dieWithZero.targetStatus).toBe('met');
   });
 
@@ -612,5 +637,135 @@ describe('unified required-savings contracts', () => {
       maximumBalance: 100_000,
       status: 'no-solution',
     });
+  });
+});
+
+describe('Phase 4B preview contradiction regression', () => {
+  const previewInputs: CalculatorInputs = {
+    ...DEFAULT_INPUTS,
+    currentAge: 44,
+    retirementAge: 50,
+    monthlyExpenses: 5800,
+    currentSavings: 950_000,
+    monthlyContribution: 800,
+    employerContribution: 200,
+    investmentStrategy: 'growth',
+    inflationEnabled: true,
+    inflationRate: 3,
+    annualIncreaseEnabled: false,
+    retirementStrategyEnabled: false,
+    ssEnabled: true,
+    ssClaimAge: 67,
+    ssMonthlyBenefit: 2000,
+    applyInflationToSS: true,
+    housePayoffEnabled: false,
+    otherIncome: [{
+      id: 'preview-income',
+      label: 'Other income',
+      monthlyAmount: 2300,
+      startAge: 44,
+      hasCola: true,
+    }],
+    oneTimeDeposits: [],
+    spendingRule: 'die_with_zero',
+    dieWithZero: { targetAge: 95, bufferAmount: 0 },
+    monteCarloEnabled: false,
+  };
+
+  it('keeps the deterministic status, spending suggestion, and retirement income math aligned', () => {
+    const results = calculateRetirement(previewInputs);
+    const retirementCheckpoint = checkpointAt(results, 50);
+    const age67Checkpoint = checkpointAt(results, 67);
+    const retirementCashFlow = getRetirementCashFlow(previewInputs, 50);
+    const age67CashFlow = getRetirementCashFlow(previewInputs, 67);
+    const retirementInflationFactor = Math.pow(1.03, 6);
+    const age67InflationFactor = Math.pow(1.03, 23);
+
+    expect(results.projectedAtRetirement).toBeCloseTo(1_514_254, -1);
+    expect(results.projectedAtRetirement).toBeGreaterThan(results.requiredSavings);
+    expect(results.gap).toBeGreaterThan(0);
+    expect(results.isOnTrack).toBe(true);
+    expect(results.deterministicFunded).toBe(true);
+    expect(results.depletionAge).toBeUndefined();
+    expect(results.planEndAge).toBe(95);
+    expect(results.planEndBalance).toBeGreaterThan(0);
+
+    expect(results.sustainableMonthlySpending).toBeGreaterThan(previewInputs.monthlyExpenses);
+    const suggestedPlan = calculateRetirement({
+      ...previewInputs,
+      monthlyExpenses: results.sustainableMonthlySpending!,
+    });
+    expect(suggestedPlan.deterministicFunded).toBe(true);
+
+    expect(retirementCashFlow.monthlyExpenses / retirementInflationFactor).toBeCloseTo(5800, 6);
+    expect(retirementCashFlow.otherIncome / retirementInflationFactor).toBeCloseTo(2300, 6);
+    expect(retirementCashFlow.ssIncome).toBe(0);
+    expect(retirementCashFlow.requestedPortfolioWithdrawal / retirementInflationFactor)
+      .toBeCloseTo(3500, 6);
+    expect(retirementCheckpoint.fromPortfolio)
+      .toBeCloseTo(retirementCashFlow.requestedPortfolioWithdrawal, 6);
+
+    expect(age67CashFlow.ssIncome / age67InflationFactor).toBeCloseTo(2000, 6);
+    expect(age67CashFlow.otherIncome / age67InflationFactor).toBeCloseTo(2300, 6);
+    expect(age67Checkpoint.ssIncome).toBeCloseTo(age67CashFlow.ssIncome, 6);
+    expect(age67Checkpoint.otherIncome).toBeCloseTo(age67CashFlow.otherIncome, 6);
+  });
+
+  it('does not recommend spending above an entered amount that fails deterministically', () => {
+    const underfunded = calculateRetirement({
+      ...previewInputs,
+      currentSavings: 250_000,
+    });
+
+    expect(underfunded.deterministicFunded).toBe(false);
+    expect(underfunded.sustainableMonthlySpending)
+      .toBeLessThanOrEqual(previewInputs.monthlyExpenses);
+  });
+
+  it('uses the deterministic cash-flow schedule when Monte Carlo returns equal the expected return', () => {
+    const deterministic = calculateRetirement(previewInputs);
+    const monteCarlo = calculateRetirement(
+      { ...previewInputs, monteCarloEnabled: true },
+      { random: expectedReturnRandom('growth') },
+    );
+
+    expect(monteCarlo.requiredSavings).toBeCloseTo(deterministic.requiredSavings, 6);
+    expect(monteCarlo.projectedAtRetirement).toBeCloseTo(deterministic.projectedAtRetirement, 6);
+    expect(monteCarlo.gap).toBeCloseTo(deterministic.gap, 6);
+    expect(monteCarlo.successProbability).toBe(1);
+    expect(balanceAt(monteCarlo, 50)).toBeCloseTo(balanceAt(deterministic, 50), 4);
+    expect(balanceAt(monteCarlo, 67)).toBeCloseTo(balanceAt(deterministic, 67), 4);
+    expect(balanceAt(monteCarlo, 95)).toBeCloseTo(balanceAt(deterministic, 95), 4);
+    expect(checkpointAt(monteCarlo, 50).fromPortfolio)
+      .toBeCloseTo(checkpointAt(deterministic, 50).fromPortfolio, 6);
+    expect(checkpointAt(monteCarlo, 67).fromPortfolio)
+      .toBeCloseTo(checkpointAt(deterministic, 67).fromPortfolio, 6);
+    expect(checkpointAt(monteCarlo, 50).otherIncome)
+      .toBeCloseTo(getRetirementCashFlow(previewInputs, 50).otherIncome, 6);
+    expect(checkpointAt(monteCarlo, 50).ssIncome).toBe(0);
+    expect(checkpointAt(monteCarlo, 67).ssIncome)
+      .toBeCloseTo(getRetirementCashFlow(previewInputs, 67).ssIncome, 6);
+  });
+
+  it('solves a passing retirement balance while a slightly lower balance fails', () => {
+    const solution = solveRequiredSavings(previewInputs);
+    const solvedPath = simulateDeterministicRetirement(
+      previewInputs,
+      solution.requiredSavings,
+    );
+    const lowerPath = simulateDeterministicRetirement(
+      previewInputs,
+      solution.requiredSavings - 1000,
+    );
+
+    expect(solution.status).toBe('solved');
+    expect(evaluatePlanPathSuccess(previewInputs, {
+      endingBalance: solvedPath.planEndBalance,
+      depletedBeforePlanEnd: solvedPath.depletedBeforeTarget,
+    })).toBe(true);
+    expect(evaluatePlanPathSuccess(previewInputs, {
+      endingBalance: lowerPath.planEndBalance,
+      depletedBeforePlanEnd: lowerPath.depletedBeforeTarget,
+    })).toBe(false);
   });
 });

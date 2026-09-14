@@ -101,10 +101,9 @@ export function SpendingRuleSection({ inputs, updateInput }: Props) {
       {inputs.spendingRule === "die_with_zero" && inputs.dieWithZero && (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Uses your planned retirement spending as the minimum withdrawal. If your
-            portfolio cannot support that spending through the target age, the chart shows
-            when it runs out. If you can afford more, withdrawals increase toward your chosen
-            ending buffer.
+            The chart uses the retirement spending you enter and tests whether the portfolio
+            reaches your target age with the selected ending buffer. If the projection can
+            support more, the results show a separate spending amount you can choose to test.
           </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <StepInput

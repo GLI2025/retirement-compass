@@ -122,6 +122,13 @@ export function calculateOtherIncome(inputs: CalculatorInputs, age: number): num
   }, 0);
 }
 
+export interface RetirementCashFlow {
+  monthlyExpenses: number;
+  ssIncome: number;
+  otherIncome: number;
+  requestedPortfolioWithdrawal: number;
+}
+
 function calculateMonthlyExpenses(inputs: CalculatorInputs, age: number): number {
   // Fixed-rate mortgage is nominal (does NOT inflate). Lifestyle expenses inflate.
 
@@ -146,6 +153,25 @@ function calculateMonthlyExpenses(inputs: CalculatorInputs, age: number): number
   }
 
   return Math.max(0, total);
+}
+
+export function getRetirementCashFlow(
+  inputs: CalculatorInputs,
+  age: number,
+): RetirementCashFlow {
+  const monthlyExpenses = calculateMonthlyExpenses(inputs, age);
+  const ssIncome = calculateSSIncome(inputs, age);
+  const otherIncome = calculateOtherIncome(inputs, age);
+
+  return {
+    monthlyExpenses,
+    ssIncome,
+    otherIncome,
+    requestedPortfolioWithdrawal: Math.max(
+      0,
+      monthlyExpenses - ssIncome - otherIncome,
+    ),
+  };
 }
 
 // ------------------------------
@@ -247,13 +273,7 @@ export function simulateDeterministicRetirement(
     data.push({ age, balance: Math.max(0, balance) });
     if (age === endAge) break;
 
-    const monthlyExpenses = calculateMonthlyExpenses(inputs, age);
-    const ssIncome = calculateSSIncome(inputs, age);
-    const otherIncome = calculateOtherIncome(inputs, age);
-    const baselinePortfolioWithdrawal = Math.max(
-      0,
-      monthlyExpenses - (ssIncome + otherIncome),
-    );
+    const cashFlow = getRetirementCashFlow(inputs, age);
 
     for (let month = 0; month < 12; month++) {
       const monthIndexFromRetirement = (age - inputs.retirementAge) * 12 + month;
@@ -268,13 +288,13 @@ export function simulateDeterministicRetirement(
         remainingMonths,
         portfolioBalance: balance,
         retirementStartBalance,
-        baselinePortfolioWithdrawal,
+        baselinePortfolioWithdrawal: cashFlow.requestedPortfolioWithdrawal,
         assumedMonthlyReturn: monthlyReturn,
       });
 
       if (
         inputs.spendingRule === 'guardrails' &&
-        Math.abs(withdrawalFromPortfolio - baselinePortfolioWithdrawal) > 0.01
+        Math.abs(withdrawalFromPortfolio - cashFlow.requestedPortfolioWithdrawal) > 0.01
       ) {
         guardrailAdjustmentMonths++;
       }
@@ -525,11 +545,11 @@ function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint
   const dataPoint = chartData.find(d => d.age === age);
   const balance = dataPoint?.balance ?? 0;
 
-  const monthlyNeed = calculateMonthlyExpenses(inputs, age);
-  const ssIncome = calculateSSIncome(inputs, age);
-  const otherIncome = calculateOtherIncome(inputs, age);
-
-  const baselinePortfolioWithdrawal = Math.max(0, monthlyNeed - ssIncome - otherIncome);
+  const cashFlow = getRetirementCashFlow(inputs, age);
+  const monthlyNeed = cashFlow.monthlyExpenses;
+  const ssIncome = cashFlow.ssIncome;
+  const otherIncome = cashFlow.otherIncome;
+  const baselinePortfolioWithdrawal = cashFlow.requestedPortfolioWithdrawal;
 
   const retirementStartBalance =
     chartData.find(d => d.age === inputs.retirementAge)?.balance ?? balance;
@@ -798,10 +818,7 @@ function simulatePath(
         monthlyContrib *= 1 + (inputs.annualIncreaseRate ?? 0) / 100;
       }
     } else {
-      const monthlyExpenses = calculateMonthlyExpenses(inputs, age);
-      const ssIncome = calculateSSIncome(inputs, age);
-      const otherIncome = calculateOtherIncome(inputs, age);
-      const baselinePortfolioWithdrawal = Math.max(0, monthlyExpenses - (ssIncome + otherIncome));
+      const cashFlow = getRetirementCashFlow(inputs, age);
 
       if (retirementStartBalance === 0) retirementStartBalance = balance;
 
@@ -818,7 +835,7 @@ function simulatePath(
           remainingMonths,
           portfolioBalance: balance,
           retirementStartBalance,
-          baselinePortfolioWithdrawal,
+          baselinePortfolioWithdrawal: cashFlow.requestedPortfolioWithdrawal,
           assumedMonthlyReturn
         });
 

@@ -49,7 +49,7 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
 
   const outlookContent = hasMC ? {
     eyebrow: belowTarget ? 'Monte Carlo below target' : 'Monte Carlo target met',
-    headline: `${successPercent} out of 100 simulated paths met the complete plan target.`,
+    headline: `${heldUpCount.toLocaleString()} of ${MC_RUNS.toLocaleString()} simulated paths met the complete plan target (${successPercent}%).`,
     detail: inputs.spendingRule === 'die_with_zero'
       ? `A path succeeds only if it stays funded through age ${results.planEndAge} and finishes with at least your ${formatCurrency(inputs.dieWithZero?.bufferAmount ?? 0)} ending buffer in today's dollars.`
       : `A path succeeds only if it stays funded through age ${results.planEndAge}.`,
@@ -178,7 +178,9 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
             {requiredSavingsLabel}
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            at retirement to maintain lifestyle
+            {hasMC
+              ? 'deterministic amount needed at retirement'
+              : 'at retirement to maintain lifestyle'}
           </p>
         </div>
 
@@ -192,7 +194,9 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
             {formatCurrency(projectedAtRetirement)}
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            at your target retirement age
+            {hasMC
+              ? 'expected-return projection at retirement'
+              : 'at your target retirement age'}
           </p>
         </div>
 
@@ -210,7 +214,7 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
               <TrendingDown className="w-5 h-5 text-warning" />
             )}
             <span className="text-sm font-medium text-muted-foreground">
-              {isSurplus ? 'Surplus' : 'Gap'}
+              {hasMC ? 'Deterministic ' : ''}{isSurplus ? 'Surplus' : 'Gap'}
             </span>
           </div>
 
@@ -224,16 +228,11 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
             {formatCurrency(Math.abs(gap))}
           </div>
 
-          {hasMC ? (
-            <p className="text-xs text-muted-foreground mt-2">
-              Complete plan success in <strong>{heldUpCount} / {MC_RUNS}</strong> market scenarios
-              {belowTarget && <> (below {Math.round(CONFIDENCE_TARGET * 100)}% target)</>}
-            </p>
-          ) : (
-            <p className="text-xs text-muted-foreground mt-2">
-              {isSurplus ? "You're ahead of your goal!" : 'Additional savings needed'}
-            </p>
-          )}
+          <p className="text-xs text-muted-foreground mt-2">
+            {isSurplus
+              ? hasMC ? 'Expected-return projection is funded' : "You're ahead of your goal!"
+              : hasMC ? 'Expected-return projection needs additional savings' : 'Additional savings needed'}
+          </p>
         </div>
       </div>
 
