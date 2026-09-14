@@ -5,6 +5,7 @@ import { STRATEGIES, type CalculatorInputs, type CalculatorResults } from '@/typ
 import {
   calculateOtherIncome,
   calculateRetirement,
+  MONTE_CARLO_RUNS,
   calculateSSIncome,
   evaluatePlanPathSuccess,
   generateGuidance,
@@ -267,6 +268,27 @@ describe('main retirement calculator financial contracts', () => {
 });
 
 describe('Monte Carlo test scaffolding', () => {
+  it('uses exactly one 1,000-path set for a Monte Carlo result', () => {
+    let randomCalls = 0;
+    const random = () => {
+      randomCalls += 1;
+      return 0.5;
+    };
+    const inputs = contractInputs({
+      currentAge: 79,
+      retirementAge: 80,
+      spendingRule: 'die_with_zero',
+      dieWithZero: { targetAge: 81, bufferAmount: 0 },
+      monteCarloEnabled: true,
+    });
+
+    const results = calculateRetirement(inputs, { random });
+    const simulatedYears = results.planEndAge - inputs.currentAge + 1;
+
+    expect(MONTE_CARLO_RUNS).toBe(1000);
+    expect(randomCalls).toBe(simulatedYears * 12 * 2 * MONTE_CARLO_RUNS);
+  });
+
   it('replays the same simulation when supplied the same deterministic random sequence', () => {
     const inputs = contractInputs({
       currentAge: 79,

@@ -1,9 +1,13 @@
-import { useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { Sparkles, Activity } from 'lucide-react';
-import { CalculatorInputs } from '@/types/calculator';
+import { CalculatorInputs, CalculatorResults } from '@/types/calculator';
 
 import { DEFAULT_INPUTS } from '@/lib/defaults';
-import { calculateRetirement, generateGuidance } from '@/utils/calculations';
+import {
+  calculateRetirement,
+  generateGuidance,
+  MONTE_CARLO_RUNS,
+} from '@/utils/calculations';
 import { OtherIncomeSourcesSection } from "./sections/OtherIncomeSourcesSection";
 
 import { YourInformationSection } from "./sections/YourInformationSection";
@@ -27,7 +31,14 @@ import { ExportPDFButton } from "../calculator/ExportPDFButton";
 
 export function RetirementCalculator() {
   const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_INPUTS);
+  const [monteCarloResult, setMonteCarloResult] = useState<{
+    signature: string;
+    results: CalculatorResults;
+  }>();
+  const [isMonteCarloRunning, setIsMonteCarloRunning] = useState(false);
+  const [monteCarloError, setMonteCarloError] = useState<string>();
   const chartRef = useRef<HTMLDivElement>(null);
+  const monteCarloRequestId = useRef(0);
 
   const updateInput = <K extends keyof CalculatorInputs>(
     key: K,
@@ -36,7 +47,74 @@ export function RetirementCalculator() {
     setInputs((prev) => ({ ...prev, [key]: value }));
   };
 
-  const results = useMemo(() => calculateRetirement(inputs), [inputs]);
+  const deterministicInputs = useMemo(
+    () => ({ ...inputs, monteCarloEnabled: false }),
+    [inputs],
+  );
+  const deterministicResults = useMemo(
+    () => calculateRetirement(deterministicInputs),
+    [deterministicInputs],
+  );
+  const monteCarloSignature = useMemo(() => JSON.stringify(inputs), [inputs]);
+  const hasCurrentMonteCarloResult = inputs.monteCarloEnabled
+    && monteCarloResult?.signature === monteCarloSignature;
+  const results = hasCurrentMonteCarloResult
+    ? monteCarloResult.results
+    : deterministicResults;
+  const displayedInputs = hasCurrentMonteCarloResult ? inputs : deterministicInputs;
+
+  useEffect(() => {
+    if (!inputs.monteCarloEnabled) {
+      setIsMonteCarloRunning(false);
+      setMonteCarloError(undefined);
+      return;
+    }
+
+    const requestId = ++monteCarloRequestId.current;
+    let worker: Worker | undefined;
+    setIsMonteCarloRunning(true);
+    setMonteCarloError(undefined);
+
+    const debounceTimer = window.setTimeout(() => {
+      worker = new Worker(
+        new URL('../../workers/monteCarlo.worker.ts', import.meta.url),
+        { type: 'module' },
+      );
+
+      worker.onmessage = (event: MessageEvent<{
+        requestId: number;
+        results?: CalculatorResults;
+        error?: string;
+      }>) => {
+        if (event.data.requestId !== monteCarloRequestId.current) return;
+
+        if (event.data.results) {
+          setMonteCarloResult({
+            signature: monteCarloSignature,
+            results: event.data.results,
+          });
+          setMonteCarloError(undefined);
+        } else {
+          setMonteCarloError(event.data.error ?? 'Monte Carlo simulation failed.');
+        }
+        setIsMonteCarloRunning(false);
+      };
+
+      worker.onerror = () => {
+        if (requestId !== monteCarloRequestId.current) return;
+        setMonteCarloError('Monte Carlo simulation failed. Deterministic results remain available.');
+        setIsMonteCarloRunning(false);
+      };
+
+      worker.postMessage({ inputs, requestId });
+    }, 300);
+
+    return () => {
+      window.clearTimeout(debounceTimer);
+      worker?.terminate();
+    };
+  }, [inputs, monteCarloSignature]);
+
   const guidance = useMemo(
     () => generateGuidance(inputs, results),
     [inputs, results]
@@ -247,7 +325,7 @@ export function RetirementCalculator() {
             data={results.chartData}
             retirementAge={inputs.retirementAge}
             ssClaimAge={inputs.ssEnabled ? inputs.ssClaimAge : undefined}
-            monteCarloEnabled={inputs.monteCarloEnabled}
+            monteCarloEnabled={hasCurrentMonteCarloResult}
             successProbability={results.successProbability}
             dieWithZeroTargetAge={
               inputs.spendingRule === 'die_with_zero' ? inputs.dieWithZero?.targetAge : undefined
@@ -282,19 +360,25 @@ export function RetirementCalculator() {
           </div>
 
           {inputs.monteCarloEnabled && (
-            <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
+            <div
+              className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20"
+              aria-live="polite"
+            >
               <p className="text-xs text-muted-foreground">
-                Running 1,000 simulations with randomized market returns based on your
-                investment strategy&apos;s stock/bond allocation. The chart shows the
-                range of possible outcomes at each age.
+                {isMonteCarloRunning
+                  ? `Updating ${MONTE_CARLO_RUNS.toLocaleString()} simulated paths… You can keep adjusting inputs.`
+                  : `The chart uses one ${MONTE_CARLO_RUNS.toLocaleString()}-path simulation set for its probability, successful-path count, and outcome bands.`}
               </p>
+              {monteCarloError && (
+                <p className="mt-2 text-xs text-destructive">{monteCarloError}</p>
+              )}
             </div>
           )}
         </section>
 
         {/* Export Button */}
         <div className="flex justify-center">
-          <ExportPDFButton results={results} inputs={inputs} chartRef={chartRef} />
+          <ExportPDFButton results={results} inputs={displayedInputs} chartRef={chartRef} />
         </div>
 
         {/* Income Checkpoints */}

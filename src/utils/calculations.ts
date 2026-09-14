@@ -736,12 +736,11 @@ export function generateGuidance(rawInputs: CalculatorInputs, results: Calculato
 // Monte Carlo
 // ------------------------------
 
-const MONTE_CARLO_RUNS = 1000;
+export const MONTE_CARLO_RUNS = 1000;
 
 interface MonteCarloResult {
   chartData: ChartDataPoint[];
   successProbability: number;
-  requiredForSuccess: number;
 }
 
 interface SimulatedPath {
@@ -888,31 +887,7 @@ function runMonteCarlo(inputs: CalculatorInputs, random: () => number): MonteCar
   })).length;
   const successProbability = successCount / MONTE_CARLO_RUNS;
 
-  let low = (inputs.currentSavings ?? 0) * 0.5;
-  let high = (inputs.currentSavings ?? 0) * 3;
-  let requiredForSuccess = inputs.currentSavings ?? 0;
-
-  for (let iter = 0; iter < 10; iter++) {
-    const mid = (low + high) / 2;
-    let successes = 0;
-
-    for (let i = 0; i < 200; i++) {
-      const path = simulatePath(inputs, mid, random);
-      if (evaluatePlanPathSuccess(inputs, {
-        endingBalance: path.balances.at(-1) ?? 0,
-        depletedBeforePlanEnd: path.depletedBeforePlanEnd,
-      })) successes++;
-    }
-
-    if (successes / 200 >= 0.85) {
-      requiredForSuccess = mid;
-      high = mid;
-    } else {
-      low = mid;
-    }
-  }
-
-  return { chartData, successProbability, requiredForSuccess };
+  return { chartData, successProbability };
 }
 
 // ------------------------------

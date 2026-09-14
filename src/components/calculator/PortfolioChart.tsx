@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import { ChartDataPoint } from '@/types/calculator';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { MONTE_CARLO_RUNS } from '@/utils/calculations';
 
 interface PortfolioChartProps {
   data: ChartDataPoint[];
@@ -102,7 +103,7 @@ export function PortfolioChart({
         {monteCarloEnabled && successProbability !== undefined && (
   <div
     className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30"
-    title={`All chart bands and this count use the same 1,000 simulated paths. A successful path stays funded through age ${planEndAge}${requiredEndingBalance > 0 ? ` and finishes with at least ${formatCurrency(requiredEndingBalance)}` : ''}.`}
+    title={`All chart bands and this count use the same ${MONTE_CARLO_RUNS.toLocaleString()} simulated paths. A successful path stays funded through age ${planEndAge}${requiredEndingBalance > 0 ? ` and finishes with at least ${formatCurrency(requiredEndingBalance)}` : ''}.`}
   >
     <span className="text-xs text-muted-foreground">Successful paths:</span>
     <span
@@ -111,7 +112,7 @@ export function PortfolioChart({
         successProbability >= 0.7 ? "text-amber-400" : "text-red-400"
       }`}
     >
-      {Math.round(successProbability * 1000).toLocaleString()} / 1,000
+      {Math.round(successProbability * MONTE_CARLO_RUNS).toLocaleString()} / {MONTE_CARLO_RUNS.toLocaleString()}
     </span>
   </div>
 )}
@@ -123,7 +124,7 @@ export function PortfolioChart({
         <div className="flex flex-wrap gap-4 mb-4 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded bg-primary/60" />
-            <span className="text-muted-foreground">Median of 1,000 simulated paths</span>
+            <span className="text-muted-foreground">Median of {MONTE_CARLO_RUNS.toLocaleString()} simulated paths</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded bg-primary/30" />
