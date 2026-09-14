@@ -22,8 +22,11 @@ export function SpendingRuleSection({ inputs, updateInput }: Props) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <label className="text-sm font-medium">Spending Rule</label>
+          <label className="text-sm font-medium" htmlFor="retirement-spending-rule">
+            Spending Rule
+          </label>
           <select
+            id="retirement-spending-rule"
             className="w-full h-10 rounded-md border border-border bg-background px-3 text-sm"
             value={inputs.spendingRule}
             onChange={(e) => {
