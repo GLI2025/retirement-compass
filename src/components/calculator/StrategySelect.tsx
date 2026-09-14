@@ -1,6 +1,7 @@
 import { InvestmentStrategy, STRATEGIES } from '@/types/calculator';
 import { cn } from '@/lib/utils';
 import { TrendingUp } from 'lucide-react';
+import { useId } from 'react';
 
 interface StrategySelectProps {
   value: InvestmentStrategy;
@@ -15,20 +16,29 @@ export function StrategySelect({
   label = 'Investment Strategy',
   className
 }: StrategySelectProps) {
+  const generatedId = useId();
+  const labelId = `strategy-${generatedId}-label`;
+  const descriptionId = `strategy-${generatedId}-description`;
   const strategies = Object.entries(STRATEGIES) as [InvestmentStrategy, typeof STRATEGIES[InvestmentStrategy]][];
 
   return (
     <div className={cn('space-y-3', className)}>
-      <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-        <TrendingUp className="w-4 h-4" />
+      <div id={labelId} className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+        <TrendingUp className="w-4 h-4" aria-hidden="true" />
         {label}
-      </label>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+      </div>
+      <div
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2"
+        role="group"
+        aria-labelledby={labelId}
+        aria-describedby={descriptionId}
+      >
         {strategies.map(([key, strategy]) => (
           <button
             key={key}
             type="button"
             onClick={() => onChange(key)}
+            aria-pressed={value === key}
             className={cn(
               'glass-input px-3 py-3 text-center transition-all duration-200',
               value === key 
@@ -43,7 +53,7 @@ export function StrategySelect({
           </button>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p id={descriptionId} className="text-xs text-muted-foreground">
         {STRATEGIES[value].description}
       </p>
     </div>

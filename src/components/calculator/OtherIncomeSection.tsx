@@ -74,15 +74,18 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
                 type="text"
                 value={income.label}
                 onChange={(e) => updateIncome(income.id, { label: e.target.value })}
+                aria-label="Income source name"
                 className="bg-transparent font-semibold text-lg focus:outline-none focus:border-b border-primary"
                 placeholder="Income source name"
               />
             </div>
             <button
+              type="button"
               onClick={() => removeIncome(income.id)}
               className="p-2 hover:bg-destructive/10 rounded-lg transition-colors"
+              aria-label={`Remove ${income.label || 'income source'}`}
             >
-              <Trash2 className="w-4 h-4 text-destructive" />
+              <Trash2 className="w-4 h-4 text-destructive" aria-hidden="true" />
             </button>
           </div>
 
@@ -106,31 +109,43 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
             />
             
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">
+              <label
+                className="text-sm font-medium text-muted-foreground"
+                htmlFor={`income-${income.id}-end-age`}
+              >
                 End Age (optional)
               </label>
               <div className="flex items-center gap-2">
                 <input
+                  id={`income-${income.id}-end-age`}
                   type="number"
                   value={income.endAge || ''}
                   onChange={(e) => updateIncome(income.id, { 
                     endAge: e.target.value ? parseInt(e.target.value) : undefined 
                   })}
+                  aria-describedby={`income-${income.id}-end-age-help`}
                   placeholder="Lifetime"
                   className="glass-input w-full px-4 py-3 text-center font-semibold"
                 />
               </div>
-              <p className="text-xs text-muted-foreground">Leave blank for lifetime</p>
+              <p id={`income-${income.id}-end-age-help`} className="text-xs text-muted-foreground">
+                Leave blank for lifetime
+              </p>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">
+              <label
+                className="text-sm font-medium text-muted-foreground"
+                htmlFor={`income-${income.id}-cola`}
+              >
                 Inflation Adjustment
               </label>
               <div className="flex items-center gap-3 h-12">
                 <Switch
+                  id={`income-${income.id}-cola`}
                   checked={income.hasCola}
                   onCheckedChange={(v) => updateIncome(income.id, { hasCola: v })}
+                  aria-label={`Inflation adjustment for ${income.label || 'income source'}`}
                   className="data-[state=checked]:bg-primary"
                 />
                 <span className="text-sm">
@@ -148,10 +163,12 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-semibold">Add Income Source</h4>
             <button
+              type="button"
               onClick={() => setIsAdding(false)}
               className="p-2 hover:bg-secondary/50 rounded-lg"
+              aria-label="Close add income source"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
 
@@ -178,10 +195,11 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">
+              <label className="text-sm font-medium text-muted-foreground" htmlFor="new-income-name">
                 Income Name
               </label>
               <input
+                id="new-income-name"
                 type="text"
                 value={newIncome.label}
                 onChange={(e) => setNewIncome(prev => ({ ...prev, label: e.target.value }))}
@@ -209,13 +227,15 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
             />
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">
+              <label className="text-sm font-medium text-muted-foreground" htmlFor="new-income-cola">
                 Inflation Adjustment
               </label>
               <div className="flex items-center gap-3 h-12">
                 <Switch
+                  id="new-income-cola"
                   checked={newIncome.hasCola || false}
                   onCheckedChange={(v) => setNewIncome(prev => ({ ...prev, hasCola: v }))}
+                  aria-label="Inflation adjustment for new income source"
                   className="data-[state=checked]:bg-primary"
                 />
                 <span className="text-sm">

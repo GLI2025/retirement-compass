@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -42,6 +42,9 @@ export function StepInput({
   helperText,
   className,
 }: StepInputProps) {
+  const generatedId = useId();
+  const inputId = `step-input-${generatedId}`;
+  const helperId = helperText ? `${inputId}-helper` : undefined;
   const clamp = (n: number) => Math.min(max, Math.max(min, n));
 
   // Keep display clean + prevent float creep (0.8100000000000001)
@@ -96,7 +99,7 @@ export function StepInput({
 
   const parseInput = (text: string) => {
     // Allow digits, minus, decimal. For $, allow commas while typing (we strip them).
-    const cleaned = text.replace(/,/g, '').replace(/[^0-9.\-]/g, '');
+    const cleaned = text.replace(/,/g, '').replace(/[^0-9.-]/g, '');
     if (cleaned === '' || cleaned === '-' || cleaned === '.' || cleaned === '-.') return null;
     const num = Number(cleaned);
     if (!Number.isFinite(num)) return null;
@@ -135,6 +138,18 @@ export function StepInput({
     }
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      handleIncrease();
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      handleDecrease();
+    }
+  };
+
   const renderValue = () => {
     // This is what the user sees in the input box.
     // - We show the draft while typing.
@@ -145,10 +160,13 @@ export function StepInput({
 
   return (
     <div className={cn('space-y-2', className)}>
-      <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+      <label
+        htmlFor={inputId}
+        className="text-sm font-medium text-muted-foreground flex items-center gap-1"
+      >
         {label}
         {tooltip && (
-          <span className="tooltip-trigger text-xs" title={tooltip}>
+          <span className="tooltip-trigger text-xs" title={tooltip} aria-hidden="true">
             ⓘ
           </span>
         )}
@@ -160,18 +178,26 @@ export function StepInput({
           onClick={handleDecrease}
           className="step-button"
           disabled={value <= min}
+          aria-label={`Decrease ${label}`}
         >
-          <Minus className="w-4 h-4" />
+          <Minus className="w-4 h-4" aria-hidden="true" />
         </button>
 
         <div className="glass-input flex-1 flex items-center px-4 py-3">
           {prefix && <span className="text-muted-foreground mr-1">{prefix}</span>}
 
           <input
+            id={inputId}
             type="text"
+            role="spinbutton"
             value={renderValue()}
             onChange={handleInputChange}
             onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            aria-describedby={helperId}
+            aria-valuemin={min}
+            aria-valuemax={Number.isFinite(max) ? max : undefined}
+            aria-valuenow={Number.isFinite(value) ? value : undefined}
             inputMode={suffix === '%' ? 'decimal' : prefix === '$' ? 'numeric' : 'decimal'}
             className="bg-transparent w-full text-center font-semibold text-lg focus:outline-none"
           />
@@ -184,13 +210,14 @@ export function StepInput({
           onClick={handleIncrease}
           className="step-button"
           disabled={value >= max}
+          aria-label={`Increase ${label}`}
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4" aria-hidden="true" />
         </button>
       </div>
 
       {helperText && (
-        <p className="text-xs text-muted-foreground leading-snug">
+        <p id={helperId} className="text-xs text-muted-foreground leading-snug">
           {helperText}
         </p>
       )}

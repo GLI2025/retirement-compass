@@ -1,7 +1,7 @@
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 interface ToggleOptionProps {
   label: string;
@@ -21,6 +21,10 @@ export function ToggleOption({
   className
 }: ToggleOptionProps) {
   const [expanded, setExpanded] = useState(enabled);
+  const generatedId = useId();
+  const switchId = `toggle-${generatedId}`;
+  const descriptionId = description ? `${switchId}-description` : undefined;
+  const contentId = `${switchId}-content`;
 
   const handleToggle = (checked: boolean) => {
     onToggle(checked);
@@ -35,16 +39,21 @@ export function ToggleOption({
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <Switch
+              id={switchId}
               checked={enabled}
               onCheckedChange={handleToggle}
+              aria-label={label}
+              aria-describedby={descriptionId}
               className="data-[state=checked]:bg-primary"
             />
             <div>
-              <label className="font-medium cursor-pointer" onClick={() => handleToggle(!enabled)}>
+              <label className="font-medium cursor-pointer" htmlFor={switchId}>
                 {label}
               </label>
               {description && (
-                <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+                <p id={descriptionId} className="text-xs text-muted-foreground mt-0.5">
+                  {description}
+                </p>
               )}
             </div>
           </div>
@@ -55,6 +64,9 @@ export function ToggleOption({
             type="button"
             onClick={() => setExpanded(!expanded)}
             className="p-2 hover:bg-secondary/50 rounded-lg transition-colors"
+            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${label} options`}
+            aria-expanded={expanded}
+            aria-controls={contentId}
           >
             {expanded ? (
               <ChevronUp className="w-4 h-4" />
@@ -66,7 +78,7 @@ export function ToggleOption({
       </div>
       
       {enabled && expanded && children && (
-        <div className="mt-4 pt-4 border-t border-border/50 animate-fade-in">
+        <div id={contentId} className="mt-4 pt-4 border-t border-border/50 animate-fade-in">
           {children}
         </div>
       )}
