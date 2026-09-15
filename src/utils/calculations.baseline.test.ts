@@ -243,7 +243,8 @@ describe('spending-rule baselines', () => {
     expect(results.chartData.at(-1)?.balance).toBeLessThan(1);
     expect(retirementCheckpoint?.fromPortfolio).toBe(2000);
     expect(retirementCheckpoint?.spendingGap).toBe(0);
-    expect(retirementCheckpoint?.stressLevel).toBe('bad');
+    // Depletion happens after this checkpoint, so it is amber here and red later.
+    expect(retirementCheckpoint?.stressLevel).toBe('warn');
     expect(results.chartData.find(({ balance }) => balance < 1)?.age).toBeLessThan(70);
     expect(results.checkpoints.at(-1)?.isPlanEnd).toBe(true);
     expect(results.checkpoints.at(-1)?.stressLevel).toBe('bad');
