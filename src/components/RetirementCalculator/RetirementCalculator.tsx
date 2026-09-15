@@ -260,7 +260,7 @@ export function RetirementCalculator() {
                 label="Payoff Age"
                 value={inputs.housePayoffAge}
                 onChange={(v) => updateInput('housePayoffAge', v)}
-                helperText="At and after this age, we subtract your mortgage from expenses (in the same inflated dollars as expenses)."
+                helperText="At and after this age, we remove the mortgage payment as a fixed nominal amount; lifestyle expenses continue to follow inflation."
                 min={inputs.currentAge}
                 max={90}
                 step={1}

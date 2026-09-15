@@ -10,7 +10,8 @@ import {
 import {
   applySpendingRule,
   DEFAULT_RETIREMENT_GUARDRAILS,
-  getDieWithZeroTargetBalance
+  getDieWithZeroTargetBalance,
+  getNormalizedDieWithZeroTargetAge,
 } from '@/lib/calculations/spendingRules';
 import { DEFAULT_INPUTS, DEFAULT_LIFE_EXPECTANCY } from '@/lib/defaults';
 
@@ -19,9 +20,6 @@ const LIFE_EXPECTANCY = DEFAULT_LIFE_EXPECTANCY;
 const MIN_CURRENT_AGE = 18;
 const MAX_RETIREMENT_AGE = 80;
 const MAX_CURRENT_AGE = MAX_RETIREMENT_AGE - 1;
-
-// Safety cap so DWZ can't run to absurd ages by accident
-const MAX_END_AGE = 120;
 
 function normalizeAgeInputs(rawInputs: CalculatorInputs): CalculatorInputs {
   const mergedInputs: CalculatorInputs = {
@@ -60,14 +58,8 @@ function getEndAge(inputs: CalculatorInputs): number {
   // Default plan end is LIFE_EXPECTANCY
   if (inputs.spendingRule !== 'die_with_zero') return LIFE_EXPECTANCY;
 
-  // DWZ should use the user's targetAge as the plan end (even if > LIFE_EXPECTANCY)
-  const targetAge = inputs.dieWithZero?.targetAge ?? LIFE_EXPECTANCY;
-  const normalizedTargetAge = Number.isFinite(targetAge)
-    ? Math.round(targetAge)
-    : LIFE_EXPECTANCY;
-
-  // A drawdown target must leave at least one year after retirement.
-  return Math.max(inputs.retirementAge + 1, Math.min(normalizedTargetAge, MAX_END_AGE));
+  // DWZ uses the same normalized target age for the plan horizon and buffer target.
+  return getNormalizedDieWithZeroTargetAge(inputs);
 }
 
 function getRequiredEndingBalance(inputs: CalculatorInputs): number {
@@ -751,6 +743,11 @@ interface SimulatedPath {
   depletedBeforePlanEnd: boolean;
 }
 
+export function percentileIndex(length: number, quantile: number): number {
+  if (length <= 0) return 0;
+  return Math.min(length - 1, Math.max(0, Math.floor(quantile * (length - 1))));
+}
+
 export interface CalculationOptions {
   random?: () => number;
 }
@@ -790,6 +787,7 @@ function simulatePath(
   let depletedBeforePlanEnd = false;
 
   let retirementStartBalance = 0;
+  let retirementStartBalanceSet = false;
 
   const endAge = getEndAge(inputs);
   const totalMonthsFromRetirement = Math.max(0, (endAge - inputs.retirementAge) * 12);
@@ -823,7 +821,10 @@ function simulatePath(
     } else {
       const cashFlow = getRetirementCashFlow(inputs, age);
 
-      if (retirementStartBalance === 0) retirementStartBalance = balance;
+      if (!retirementStartBalanceSet) {
+        retirementStartBalance = balance;
+        retirementStartBalanceSet = true;
+      }
 
       // Use expected return (not the sampled one) as the amortization assumption
       const assumedMonthlyReturn = Math.pow(1 + retirementStrategy.expectedReturn, 1 / 12) - 1;
@@ -876,12 +877,12 @@ function runMonteCarlo(inputs: CalculatorInputs, random: () => number): MonteCar
     const balancesAtAge = allPaths.map(path => path.balances[idx] ?? 0).sort((a, b) => a - b);
     return {
       age,
-      balance: balancesAtAge[Math.floor(MONTE_CARLO_RUNS * 0.5)],
-      p10: balancesAtAge[Math.floor(MONTE_CARLO_RUNS * 0.1)],
-      p25: balancesAtAge[Math.floor(MONTE_CARLO_RUNS * 0.25)],
-      p50: balancesAtAge[Math.floor(MONTE_CARLO_RUNS * 0.5)],
-      p75: balancesAtAge[Math.floor(MONTE_CARLO_RUNS * 0.75)],
-      p90: balancesAtAge[Math.floor(MONTE_CARLO_RUNS * 0.9)]
+      balance: balancesAtAge[percentileIndex(balancesAtAge.length, 0.5)],
+      p10: balancesAtAge[percentileIndex(balancesAtAge.length, 0.1)],
+      p25: balancesAtAge[percentileIndex(balancesAtAge.length, 0.25)],
+      p50: balancesAtAge[percentileIndex(balancesAtAge.length, 0.5)],
+      p75: balancesAtAge[percentileIndex(balancesAtAge.length, 0.75)],
+      p90: balancesAtAge[percentileIndex(balancesAtAge.length, 0.9)]
     };
   });
 
