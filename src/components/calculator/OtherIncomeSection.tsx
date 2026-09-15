@@ -7,6 +7,7 @@ import { Plus, Trash2, Briefcase, Home, DollarSign, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   applyIncomePreset,
+  createIncomeSourceId,
   createOtherIncomeDraft,
   createOtherIncomeSource,
   type OtherIncomeDraft,
@@ -30,6 +31,7 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
     createOtherIncomeDraft(currentAge)
   );
   const [lastAddedIncome, setLastAddedIncome] = useState<OtherIncome>();
+  const [saveError, setSaveError] = useState<string>();
   const addedStatusRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,20 +46,27 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
   }, [lastAddedIncome]);
 
   const addIncome = () => {
-    const income = createOtherIncomeSource(
-      newIncome,
-      currentAge,
-      crypto.randomUUID(),
-    );
+    setSaveError(undefined);
 
-    onChange([...incomes, income]);
-    setIsAdding(false);
-    setNewIncome(createOtherIncomeDraft(currentAge));
-    setLastAddedIncome(income);
+    try {
+      const income = createOtherIncomeSource(
+        newIncome,
+        currentAge,
+        createIncomeSourceId(),
+      );
+
+      onChange([...incomes, income]);
+      setIsAdding(false);
+      setNewIncome(createOtherIncomeDraft(currentAge));
+      setLastAddedIncome(income);
+    } catch {
+      setSaveError('We could not add this income source. Please try again.');
+    }
   };
 
   const startAdding = () => {
     setLastAddedIncome(undefined);
+    setSaveError(undefined);
     setIsAdding(true);
   };
 
@@ -311,6 +320,15 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
               </Button>
             </div>
           </div>
+
+          {saveError && (
+            <p
+              role="alert"
+              className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+            >
+              {saveError}
+            </p>
+          )}
         </div>
       ) : (
         <button
