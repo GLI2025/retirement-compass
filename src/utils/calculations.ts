@@ -4,6 +4,7 @@ import {
   ChartDataPoint,
   IncomeCheckpoint,
   GuidanceItem,
+  SustainableSpendingStatus,
   STRATEGIES
 } from '@/types/calculator';
 
@@ -13,6 +14,11 @@ import {
   getDieWithZeroTargetBalance,
   getNormalizedDieWithZeroTargetAge,
 } from '@/lib/calculations/spendingRules';
+import {
+  getNonHousingMonthlyExpensesToday,
+  monthlyHousingCostAt,
+  normalizeHousingInputs,
+} from '@/lib/calculations/housing';
 import { DEFAULT_INPUTS, DEFAULT_LIFE_EXPECTANCY } from '@/lib/defaults';
 
 const LIFE_EXPECTANCY = DEFAULT_LIFE_EXPECTANCY;
@@ -122,30 +128,24 @@ export interface RetirementCashFlow {
   requestedPortfolioWithdrawal: number;
 }
 
+// total expenses = non-housing expenses + housing cost
+//
+// Monthly Expenses already includes housing, so the housing portion is carved
+// out of it once and only the remaining non-housing portion follows the general
+// inflation setting. Housing itself follows the shared housing schedule, which
+// keeps an owned mortgage fixed nominal until payoff and grows rent by the
+// selected rent-growth rate.
 function calculateMonthlyExpenses(inputs: CalculatorInputs, age: number): number {
-  // Fixed-rate mortgage is nominal (does NOT inflate). Lifestyle expenses inflate.
+  const housing = normalizeHousingInputs(inputs);
+  const nonHousingToday = getNonHousingMonthlyExpensesToday(inputs);
 
-  const baseExpenses = inputs.monthlyExpenses ?? 0;
-  const mortgage = inputs.housePayoffEnabled ? inputs.currentMortgagePayment ?? 0 : 0;
-
-  // A) Lifestyle Base = total expenses - mortgage
-  const lifestyleBase = Math.max(0, baseExpenses - mortgage);
-
-  // B) Inflate lifestyle base only
-  let total = lifestyleBase;
+  let nonHousing = nonHousingToday;
   if (inputs.inflationEnabled) {
     const yearsFromNow = Math.max(0, age - inputs.currentAge);
-    total = lifestyleBase * Math.pow(1 + (inputs.inflationRate ?? 0) / 100, yearsFromNow);
+    nonHousing = nonHousingToday * Math.pow(1 + (inputs.inflationRate ?? 0) / 100, yearsFromNow);
   }
 
-  // C) Add original mortgage back if still owed
-  if (inputs.housePayoffEnabled) {
-    if (age < (inputs.housePayoffAge ?? inputs.currentAge)) total += mortgage;
-  } else {
-    total += mortgage;
-  }
-
-  return Math.max(0, total);
+  return Math.max(0, nonHousing + monthlyHousingCostAt(housing, age));
 }
 
 export function getRetirementCashFlow(
@@ -352,7 +352,18 @@ function assessTarget(inputs: CalculatorInputs, outcome: DeterministicProjection
     ? 'met' as const : 'buffer-short' as const;
 }
 
-function calculateSustainableMonthlySpending(inputs: CalculatorInputs): number | undefined {
+export interface SustainableSpendingSolution {
+  status: SustainableSpendingStatus;
+  monthlySpending?: number;
+}
+
+// Searches total monthly spending, which always includes the selected housing
+// cost. When even zero non-housing spending fails, the binding constraint is
+// housing itself, so no lifestyle budget is reported: $0 would read as a usable
+// recommendation when it is not one.
+function calculateSustainableMonthlySpending(
+  inputs: CalculatorInputs,
+): SustainableSpendingSolution {
   const fitsTarget = (monthlyExpenses: number) => {
     const outcome = generateProjectionDetails({
       ...inputs,
@@ -365,7 +376,14 @@ function calculateSustainableMonthlySpending(inputs: CalculatorInputs): number |
     });
   };
 
-  if (!fitsTarget(0)) return 0;
+  const housing = normalizeHousingInputs(inputs);
+  const housingCostToday = monthlyHousingCostAt(housing, housing.currentAge);
+
+  if (!fitsTarget(0)) {
+    return housingCostToday > 0
+      ? { status: 'housing-not-supported' }
+      : { status: 'solved', monthlySpending: 0 };
+  }
 
   let low = 0;
   let high = Math.max(1000, inputs.monthlyExpenses ?? 0);
@@ -384,7 +402,7 @@ function calculateSustainableMonthlySpending(inputs: CalculatorInputs): number |
 
   // Whole dollars can be copied into the spending input without rounding up
   // beyond the calculated limit.
-  return Math.floor(low);
+  return { status: 'solved', monthlySpending: Math.floor(low) };
 }
 
 // ------------------------------
@@ -701,26 +719,34 @@ export function generateGuidance(rawInputs: CalculatorInputs, results: Calculato
       });
     }
 
-    const enteredMonthlySpending = Math.max(0, inputs.monthlyExpenses ?? 0);
-    const projectionSupportedMonthly = Math.max(
-      0,
-      results.sustainableMonthlySpending ?? 0,
-    );
-    const practicalMonthlyIncrement = 100;
-    const roundedSupportedMonthly = Math.floor(
-      projectionSupportedMonthly / practicalMonthlyIncrement,
-    ) * practicalMonthlyIncrement;
-    const enteredAnnualSpending = Math.round(enteredMonthlySpending * 12 / 100) * 100;
-    const supportedAnnualSpending = roundedSupportedMonthly * 12;
-    const annualReduction = Math.max(0, enteredAnnualSpending - supportedAnnualSpending);
-
-    if (annualReduction > 0) {
+    if (results.sustainableSpendingStatus === 'housing-not-supported') {
       items.push({
         type: 'expenses',
-        title: 'Test a lower spending plan',
-        description: `Entered spending is $${enteredAnnualSpending.toLocaleString()}/year. This monthly projection supports about $${supportedAnnualSpending.toLocaleString()}/year, an estimated reduction of $${annualReduction.toLocaleString()}/year based on your selected assumptions.`,
-        value: `≈$${supportedAnnualSpending.toLocaleString()}/yr`
+        title: 'Housing cost is the binding constraint',
+        description: 'The selected housing cost alone is not supported under these assumptions, so there is no lower lifestyle budget to recommend. Revisit the housing plan, savings, or retirement age.',
       });
+    } else {
+      const enteredMonthlySpending = Math.max(0, inputs.monthlyExpenses ?? 0);
+      const projectionSupportedMonthly = Math.max(
+        0,
+        results.sustainableMonthlySpending ?? 0,
+      );
+      const practicalMonthlyIncrement = 100;
+      const roundedSupportedMonthly = Math.floor(
+        projectionSupportedMonthly / practicalMonthlyIncrement,
+      ) * practicalMonthlyIncrement;
+      const enteredAnnualSpending = Math.round(enteredMonthlySpending * 12 / 100) * 100;
+      const supportedAnnualSpending = roundedSupportedMonthly * 12;
+      const annualReduction = Math.max(0, enteredAnnualSpending - supportedAnnualSpending);
+
+      if (annualReduction > 0) {
+        items.push({
+          type: 'expenses',
+          title: 'Test a lower spending plan',
+          description: `Entered spending is $${enteredAnnualSpending.toLocaleString()}/year. This monthly projection supports about $${supportedAnnualSpending.toLocaleString()}/year, an estimated reduction of $${annualReduction.toLocaleString()}/year based on your selected assumptions.`,
+          value: `≈$${supportedAnnualSpending.toLocaleString()}/yr`
+        });
+      }
     }
   }
 
@@ -952,9 +978,10 @@ export function calculateRetirement(
     deterministicProjection.chartData,
     deterministicTargetStatus,
   );
-  const sustainableMonthlySpending = gap < 0 || inputs.spendingRule === 'die_with_zero'
-    ? calculateSustainableMonthlySpending(inputs)
-    : undefined;
+  const sustainableSpending: SustainableSpendingSolution =
+    gap < 0 || inputs.spendingRule === 'die_with_zero'
+      ? calculateSustainableMonthlySpending(inputs)
+      : { status: 'not-calculated' };
 
   return {
     requiredSavings,
@@ -964,7 +991,8 @@ export function calculateRetirement(
     chartData,
     checkpoints,
     successProbability,
-    sustainableMonthlySpending,
+    sustainableMonthlySpending: sustainableSpending.monthlySpending,
+    sustainableSpendingStatus: sustainableSpending.status,
     targetStatus,
     planEndAge: getEndAge(inputs),
     requiredEndingBalance: getRequiredEndingBalance(inputs),

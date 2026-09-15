@@ -7,6 +7,10 @@ import {
   getDieWithZeroTargetBalance,
   getNormalizedDieWithZeroTargetAge,
 } from '@/lib/calculations/spendingRules';
+import {
+  getHousingInputWarning,
+  getMonthlyHousingCost,
+} from '@/lib/calculations/housing';
 import { STRATEGIES, type CalculatorInputs, type CalculatorResults } from '@/types/calculator';
 import {
   findDisplayedDepletionAge,
@@ -1020,5 +1024,279 @@ describe('Phase 4B preview contradiction regression', () => {
       endingBalance: lowerPath.planEndBalance,
       depletedBeforePlanEnd: lowerPath.depletedBeforeTarget,
     })).toBe(false);
+  });
+});
+
+describe('housing details cash-flow contracts', () => {
+  const housingInputs = (overrides: Partial<CalculatorInputs> = {}) => contractInputs({
+    currentAge: 60,
+    retirementAge: 62,
+    monthlyExpenses: 4000,
+    currentSavings: 800_000,
+    inflationEnabled: true,
+    inflationRate: 3,
+    housePayoffEnabled: true,
+    housingPlan: 'own',
+    housePayoffAge: 70,
+    currentMortgagePayment: 1500,
+    monthlyRent: 1500,
+    rentGrowthRate: 3,
+    ...overrides,
+  });
+
+  const expensesAt = (inputs: CalculatorInputs, age: number) =>
+    getRetirementCashFlow(inputs, age).monthlyExpenses;
+
+  it('treats every entered dollar as general lifestyle spending while Housing Details is off', () => {
+    const inputs = housingInputs({ housePayoffEnabled: false });
+
+    expect(expensesAt(inputs, 60)).toBeCloseTo(4000, 6);
+    expect(expensesAt(inputs, 70)).toBeCloseTo(4000 * Math.pow(1.03, 10), 6);
+    expect(expensesAt(inputs, 90)).toBeCloseTo(4000 * Math.pow(1.03, 30), 6);
+  });
+
+  it('keeps the default plan identical when housing fields are missing from stale inputs', () => {
+    const staleInputs = { ...DEFAULT_INPUTS } as Record<string, unknown>;
+    delete staleInputs.housingPlan;
+    delete staleInputs.monthlyRent;
+    delete staleInputs.rentGrowthRate;
+
+    expect(calculateRetirement(staleInputs as unknown as CalculatorInputs))
+      .toEqual(calculateRetirement(DEFAULT_INPUTS));
+  });
+
+  it('adds a fixed nominal mortgage to inflated non-housing spending until payoff', () => {
+    const inputs = housingInputs();
+    const nonHousingToday = 4000 - 1500;
+
+    expect(expensesAt(inputs, 60)).toBeCloseTo(nonHousingToday + 1500, 6);
+    expect(expensesAt(inputs, 62)).toBeCloseTo(nonHousingToday * Math.pow(1.03, 2) + 1500, 6);
+    expect(expensesAt(inputs, 69)).toBeCloseTo(nonHousingToday * Math.pow(1.03, 9) + 1500, 6);
+  });
+
+  it('removes the mortgage from the cash flow beginning exactly at the payoff age', () => {
+    const inputs = housingInputs();
+    const nonHousingToday = 4000 - 1500;
+
+    expect(expensesAt(inputs, 69)).toBeCloseTo(nonHousingToday * Math.pow(1.03, 9) + 1500, 6);
+    expect(expensesAt(inputs, 70)).toBeCloseTo(nonHousingToday * Math.pow(1.03, 10), 6);
+    expect(expensesAt(inputs, 71)).toBeCloseTo(nonHousingToday * Math.pow(1.03, 11), 6);
+  });
+
+  it('holds non-housing spending flat while owning when general inflation is disabled', () => {
+    const inputs = housingInputs({ inflationEnabled: false });
+
+    expect(expensesAt(inputs, 62)).toBeCloseTo(4000, 6);
+    expect(expensesAt(inputs, 69)).toBeCloseTo(4000, 6);
+    expect(expensesAt(inputs, 70)).toBeCloseTo(2500, 6);
+  });
+
+  it('grows rent by its own rate on top of inflated non-housing spending', () => {
+    const inputs = housingInputs({
+      housingPlan: 'rent',
+      monthlyRent: 1500,
+      rentGrowthRate: 4,
+      inflationRate: 2,
+    });
+    const nonHousingToday = 4000 - 1500;
+
+    expect(expensesAt(inputs, 60)).toBeCloseTo(nonHousingToday + 1500, 6);
+    expect(expensesAt(inputs, 62)).toBeCloseTo(
+      nonHousingToday * Math.pow(1.02, 2) + 1500 * Math.pow(1.04, 2),
+      6,
+    );
+    expect(expensesAt(inputs, 85)).toBeCloseTo(
+      nonHousingToday * Math.pow(1.02, 25) + 1500 * Math.pow(1.04, 25),
+      6,
+    );
+  });
+
+  it('keeps rent growing in the cash flow when general inflation is disabled', () => {
+    const inputs = housingInputs({
+      housingPlan: 'rent',
+      inflationEnabled: false,
+      monthlyRent: 1500,
+      rentGrowthRate: 4,
+    });
+
+    expect(expensesAt(inputs, 85)).toBeCloseTo(2500 + 1500 * Math.pow(1.04, 25), 6);
+  });
+
+  it('does not let the general inflation rate change the rent portion', () => {
+    const lowInflation = housingInputs({ housingPlan: 'rent', inflationRate: 1 });
+    const highInflation = housingInputs({ housingPlan: 'rent', inflationRate: 9 });
+    const rentAt85 = 1500 * Math.pow(1.03, 25);
+
+    expect(expensesAt(lowInflation, 85) - 2500 * Math.pow(1.01, 25)).toBeCloseTo(rentAt85, 6);
+    expect(expensesAt(highInflation, 85) - 2500 * Math.pow(1.09, 25)).toBeCloseTo(rentAt85, 6);
+  });
+
+  it('solves Required Savings against the Own schedule', () => {
+    const payoffAt70 = solveRequiredSavings(housingInputs({ housePayoffAge: 70 }));
+    const payoffAt80 = solveRequiredSavings(housingInputs({ housePayoffAge: 80 }));
+    const housingOff = solveRequiredSavings(housingInputs({ housePayoffEnabled: false }));
+    const solvedPath = simulateDeterministicRetirement(
+      housingInputs({ housePayoffAge: 70 }),
+      payoffAt70.requiredSavings,
+    );
+
+    expect(payoffAt70.status).toBe('solved');
+    expect(payoffAt70.requiredSavings).toBeLessThan(payoffAt80.requiredSavings);
+    // A fixed nominal mortgage costs less than inflating that same portion forever.
+    expect(payoffAt80.requiredSavings).toBeLessThan(housingOff.requiredSavings);
+    expect(solvedPath.depletedBeforeTarget).toBe(false);
+    expect(solvedPath.planEndBalance).toBeLessThan(1);
+  });
+
+  it('solves Required Savings against the Rent schedule', () => {
+    const rentInputs = (rentGrowthRate: number) =>
+      housingInputs({ housingPlan: 'rent', rentGrowthRate });
+    const slowGrowth = solveRequiredSavings(rentInputs(2));
+    const fastGrowth = solveRequiredSavings(rentInputs(6));
+    const solvedPath = simulateDeterministicRetirement(
+      rentInputs(6),
+      fastGrowth.requiredSavings,
+    );
+
+    expect(slowGrowth.status).toBe('solved');
+    expect(fastGrowth.requiredSavings).toBeGreaterThan(slowGrowth.requiredSavings);
+    expect(solvedPath.depletedBeforeTarget).toBe(false);
+    expect(solvedPath.planEndBalance).toBeLessThan(1);
+  });
+
+  it('requires more savings to rent with sustained growth than to pay off an equal mortgage', () => {
+    const own = housingInputs({
+      housingPlan: 'own',
+      currentMortgagePayment: 1500,
+      housePayoffAge: 70,
+    });
+    const rent = housingInputs({
+      housingPlan: 'rent',
+      monthlyRent: 1500,
+      rentGrowthRate: 3,
+    });
+
+    expect(expensesAt(own, 60)).toBeCloseTo(expensesAt(rent, 60), 6);
+    expect(solveRequiredSavings(rent).requiredSavings)
+      .toBeGreaterThan(solveRequiredSavings(own).requiredSavings);
+  });
+
+  it('solves sustainable spending against the identical housing schedule', () => {
+    const inputs = housingInputs({ currentSavings: 300_000 });
+    const results = calculateRetirement(inputs);
+    const supported = results.sustainableMonthlySpending ?? 0;
+    const rerun = calculateRetirement({ ...inputs, monthlyExpenses: supported });
+    const fasterRentGrowth = calculateRetirement({
+      ...inputs,
+      housingPlan: 'rent',
+      rentGrowthRate: 6,
+    });
+
+    expect(results.sustainableSpendingStatus).toBe('solved');
+    expect(supported).toBeGreaterThan(0);
+    expect(supported).toBeLessThan(inputs.monthlyExpenses);
+    // Total spending always carries the selected housing cost.
+    expect(supported).toBeGreaterThanOrEqual(getMonthlyHousingCost(inputs, inputs.currentAge));
+    expect(rerun.deterministicFunded).toBe(true);
+    expect(fasterRentGrowth.sustainableMonthlySpending ?? 0).toBeLessThan(supported);
+  });
+
+  it('reports an unsupported housing cost instead of a $0 lifestyle budget', () => {
+    const inputs = housingInputs({
+      currentSavings: 50_000,
+      monthlyExpenses: 3500,
+      housingPlan: 'rent',
+      monthlyRent: 3000,
+      rentGrowthRate: 5,
+    });
+    const results = calculateRetirement(inputs);
+    const guidance = generateGuidance(inputs, results);
+    const spendingGuidance = guidance.find(item => item.type === 'expenses');
+
+    expect(results.deterministicFunded).toBe(false);
+    expect(results.sustainableSpendingStatus).toBe('housing-not-supported');
+    expect(results.sustainableMonthlySpending).toBeUndefined();
+    expect(spendingGuidance?.description)
+      .toContain('selected housing cost alone is not supported');
+    expect(spendingGuidance?.description).not.toContain('$0');
+    expect(spendingGuidance?.value).toBeUndefined();
+    expect(guidance.every(item => !(item.value ?? '').includes('$0'))).toBe(true);
+  });
+
+  it('feeds housing-inclusive monthly need into main-calculator Guardrails', () => {
+    const inputs = housingInputs({ spendingRule: 'guardrails', currentSavings: 900_000 });
+    const results = calculateRetirement(inputs);
+    const checkpoint = checkpointAt(results, 65);
+    const cashFlow = getRetirementCashFlow(inputs, 65);
+    const rentResults = calculateRetirement({
+      ...inputs,
+      housingPlan: 'rent',
+      rentGrowthRate: 6,
+    });
+
+    expect(checkpoint.monthlyNeed).toBeCloseTo(cashFlow.monthlyExpenses, 6);
+    expect(checkpoint.monthlyNeed).toBeCloseTo(2500 * Math.pow(1.03, 5) + 1500, 6);
+    expect(checkpoint.lowerGuardrailRate)
+      .toBeCloseTo((checkpoint.targetWithdrawalRate ?? 0) * DEFAULT_RETIREMENT_GUARDRAILS.lowerBand, 9);
+    expect(checkpoint.upperGuardrailRate)
+      .toBeCloseTo((checkpoint.targetWithdrawalRate ?? 0) * DEFAULT_RETIREMENT_GUARDRAILS.upperBand, 9);
+    // Faster-growing housing raises the need that the guardrail bands are measured against.
+    expect(checkpointAt(rentResults, 82).monthlyNeed)
+      .toBeGreaterThan(checkpointAt(results, 82).monthlyNeed);
+    expect(checkpointAt(rentResults, 82).targetWithdrawalRate ?? 0)
+      .toBeGreaterThan(checkpointAt(results, 82).targetWithdrawalRate ?? 0);
+  });
+
+  it.each([
+    ['own', 'own' as const],
+    ['rent', 'rent' as const],
+  ])('matches deterministic and Monte Carlo paths for %s housing', (_label, housingPlan) => {
+    const inputs = housingInputs({ housingPlan });
+    const deterministic = calculateRetirement(inputs);
+    const monteCarlo = calculateRetirement(
+      { ...inputs, monteCarloEnabled: true },
+      { random: expectedReturnRandom('conservative') },
+    );
+
+    expect(monteCarlo.requiredSavings).toBeCloseTo(deterministic.requiredSavings, 6);
+    expect(monteCarlo.projectedAtRetirement).toBeCloseTo(deterministic.projectedAtRetirement, 6);
+    expect(monteCarlo.successProbability).toBe(deterministic.deterministicFunded ? 1 : 0);
+    expect(balanceAt(monteCarlo, 62)).toBeCloseTo(balanceAt(deterministic, 62), 4);
+    expect(balanceAt(monteCarlo, 70)).toBeCloseTo(balanceAt(deterministic, 70), 4);
+    expect(balanceAt(monteCarlo, 90)).toBeCloseTo(balanceAt(deterministic, 90), 4);
+    expect(checkpointAt(monteCarlo, 70).monthlyNeed)
+      .toBeCloseTo(checkpointAt(deterministic, 70).monthlyNeed, 6);
+  });
+
+  it('normalizes invalid payoff ages and negative housing inputs inside the projection', () => {
+    const payoffBeforeCurrentAge = housingInputs({ housePayoffAge: 20 });
+    const payoffAtCurrentAge = housingInputs({ housePayoffAge: 60 });
+    const housingOff = housingInputs({ housePayoffEnabled: false });
+    const negativeRent = housingInputs({ housingPlan: 'rent', monthlyRent: -1800 });
+
+    // Payoff at or before the current age means the mortgage is already gone.
+    expect(expensesAt(payoffBeforeCurrentAge, 70)).toBeCloseTo(expensesAt(housingOff, 70), 6);
+    expect(expensesAt(payoffAtCurrentAge, 70)).toBeCloseTo(expensesAt(housingOff, 70), 6);
+    expect(solveRequiredSavings(payoffBeforeCurrentAge).requiredSavings)
+      .toBeCloseTo(solveRequiredSavings(payoffAtCurrentAge).requiredSavings, 6);
+
+    expect(expensesAt(negativeRent, 80)).toBeCloseTo(expensesAt(housingOff, 80), 6);
+    expect(Number.isFinite(calculateRetirement(negativeRent).requiredSavings)).toBe(true);
+  });
+
+  it('never creates negative non-housing spending when housing exceeds total expenses', () => {
+    const own = housingInputs({ monthlyExpenses: 1200, currentMortgagePayment: 1500 });
+    const rent = housingInputs({
+      housingPlan: 'rent',
+      monthlyExpenses: 1200,
+      monthlyRent: 1800,
+      rentGrowthRate: 3,
+    });
+
+    expect(expensesAt(own, 62)).toBeCloseTo(1500, 6);
+    expect(expensesAt(own, 70)).toBe(0);
+    expect(expensesAt(rent, 62)).toBeCloseTo(1800 * Math.pow(1.03, 2), 6);
+    expect(getHousingInputWarning(own)).toBeTruthy();
+    expect(getHousingInputWarning(rent)).toBeTruthy();
   });
 });

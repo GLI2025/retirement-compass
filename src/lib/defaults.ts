@@ -2,6 +2,8 @@ import { CalculatorInputs } from '@/types/calculator';
 
 export const DEFAULT_LIFE_EXPECTANCY = 90;
 
+export const DEFAULT_INFLATION_RATE = 3.0;
+
 export const DEFAULT_INPUTS: CalculatorInputs = {
   // Ages
   currentAge: 45,
@@ -20,7 +22,7 @@ export const DEFAULT_INPUTS: CalculatorInputs = {
 
   // Inflation
   inflationEnabled: true,
-  inflationRate: 3.0,
+  inflationRate: DEFAULT_INFLATION_RATE,
   applyInflationToSS: true,
 
   // Contribution growth (OFF by default)
@@ -36,10 +38,14 @@ export const DEFAULT_INPUTS: CalculatorInputs = {
   ssClaimAge: 67,
   ssMonthlyBenefit: 2000,
 
-  // Housing (OFF by default)
+  // Housing Details (OFF by default)
   housePayoffEnabled: false,
+  housingPlan: 'own',
   housePayoffAge: 65,
   currentMortgagePayment: 2000,
+  monthlyRent: 2000,
+  // Starts at the inflation default, then moves independently of it.
+  rentGrowthRate: DEFAULT_INFLATION_RATE,
 
   // Other income / deposits
   otherIncome: [],
