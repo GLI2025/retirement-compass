@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { CalculatorResults, CalculatorInputs } from '@/types/calculator';
+import { getHousingExportSummary } from '@/lib/calculations/housing';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -47,6 +48,7 @@ export function ExportPDFButton({ results, inputs, chartRef }: ExportPDFButtonPr
           monthlyContribution: inputs.monthlyContribution,
           employerContribution: inputs.employerContribution,
           investmentStrategy: inputs.investmentStrategy,
+          housing: getHousingExportSummary(inputs),
         },
         chartImage,
       };

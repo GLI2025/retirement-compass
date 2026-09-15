@@ -71,6 +71,9 @@ export interface OneTimeDeposit {
   ageReceived: number;
 }
 
+// Housing plan (Housing Details section)
+export type HousingPlan = 'own' | 'rent';
+
 // Spending rules
 export type SpendingRule = 'fixed' | 'guardrails' | 'die_with_zero';
 
@@ -111,9 +114,15 @@ export interface CalculatorInputs {
   ssEnabled: boolean;
   ssClaimAge: number;
   ssMonthlyBenefit: number;
+
+  // Housing Details. The gate keeps its original field name so existing
+  // Mortgage Payoff inputs map to Housing Details enabled + Own.
   housePayoffEnabled: boolean;
+  housingPlan: HousingPlan;
   housePayoffAge: number;
-  currentMortgagePayment: number;
+  currentMortgagePayment: number; // fixed nominal dollars while owed
+  monthlyRent: number; // today's dollars
+  rentGrowthRate: number; // %, independent of the general inflation toggle
 
   otherIncome: OtherIncome[];
   oneTimeDeposits: OneTimeDeposit[];
@@ -160,6 +169,16 @@ export interface IncomeCheckpoint {
   guardrailAction?: 'raise' | 'cut' | 'none';
 }
 
+// Sustainable-spending solver outcome
+// - 'not-calculated': the plan is funded, so no alternative was solved
+// - 'solved': sustainableMonthlySpending holds a usable total monthly budget
+// - 'housing-not-supported': the selected housing cost alone cannot be funded,
+//   so no lifestyle budget is meaningful
+export type SustainableSpendingStatus =
+  | 'not-calculated'
+  | 'solved'
+  | 'housing-not-supported';
+
 // Calculation results
 export interface CalculatorResults {
   requiredSavings: number;
@@ -170,6 +189,7 @@ export interface CalculatorResults {
   checkpoints: IncomeCheckpoint[];
   successProbability?: number;
   sustainableMonthlySpending?: number;
+  sustainableSpendingStatus: SustainableSpendingStatus;
   targetStatus?: 'met' | 'buffer-short' | 'depleted';
   planEndAge: number;
   requiredEndingBalance: number;

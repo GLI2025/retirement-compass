@@ -11,6 +11,7 @@ import {
 import { OtherIncomeSourcesSection } from "./sections/OtherIncomeSourcesSection";
 
 import { YourInformationSection } from "./sections/YourInformationSection";
+import { HousingSection } from "./sections/HousingSection";
 
 import { InflationOptionSection } from "./sections/InflationOptionSection";
 import { SpendingRuleSection } from "./sections/SpendingRuleSection";
@@ -133,8 +134,11 @@ export function RetirementCalculator() {
     updateInput('applyInflationToSS', DEFAULT_INPUTS.applyInflationToSS);
 
     updateInput('housePayoffEnabled', false);
+    updateInput('housingPlan', DEFAULT_INPUTS.housingPlan);
     updateInput('housePayoffAge', DEFAULT_INPUTS.housePayoffAge);
     updateInput('currentMortgagePayment', DEFAULT_INPUTS.currentMortgagePayment);
+    updateInput('monthlyRent', DEFAULT_INPUTS.monthlyRent);
+    updateInput('rentGrowthRate', DEFAULT_INPUTS.rentGrowthRate);
 
     updateInput('annualIncreaseEnabled', false);
     updateInput('annualIncreaseRate', DEFAULT_INPUTS.annualIncreaseRate);
@@ -249,33 +253,7 @@ export function RetirementCalculator() {
             </div>
           </ToggleOption>
 
-          <ToggleOption
-            label="Mortgage Payoff"
-            description="Account for reduced expenses after paying off your home"
-            enabled={inputs.housePayoffEnabled}
-            onToggle={(v) => updateInput('housePayoffEnabled', v)}
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <StepInput
-                label="Payoff Age"
-                value={inputs.housePayoffAge}
-                onChange={(v) => updateInput('housePayoffAge', v)}
-                helperText="At and after this age, we remove the mortgage payment as a fixed nominal amount; lifestyle expenses continue to follow inflation."
-                min={inputs.currentAge}
-                max={90}
-                step={1}
-              />
-              <StepInput
-                label="Current Mortgage Payment"
-                value={inputs.currentMortgagePayment}
-                onChange={(v) => updateInput('currentMortgagePayment', v)}
-                helperText="Enter today’s monthly payment (don’t inflate it)."
-                min={0}
-                step={100}
-                prefix="$"
-              />
-            </div>
-          </ToggleOption>
+          <HousingSection inputs={inputs} updateInput={updateInput} />
 
           <ToggleOption
             label="Annual Contribution Increases"
