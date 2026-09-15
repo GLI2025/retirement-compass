@@ -145,6 +145,7 @@ export interface IncomeCheckpoint {
   otherIncome: number;
   fromPortfolio: number;
   spendingGap: number;
+  spendingGapKind?: 'guardrail-adjustment' | 'unfunded';
   portfolioBalance: number;
   withdrawalRate: number;
   stressLevel: 'good' | 'warn' | 'bad';

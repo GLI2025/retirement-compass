@@ -1,5 +1,6 @@
 import type { CalculatorInputs, SpendingRule } from "@/types/calculator";
 import { StepInput } from "@/components/calculator/StepInput";
+import { DEFAULT_RETIREMENT_GUARDRAILS } from "@/lib/calculations/spendingRules";
 
 type Props = {
   inputs: CalculatorInputs;
@@ -36,12 +37,7 @@ export function SpendingRuleSection({ inputs, updateInput }: Props) {
 
               // Ensure defaults exist when switching
               if (rule === "guardrails" && !inputs.guardrails) {
-                updateInput("guardrails", {
-                  lowerBand: 0.8,
-                  upperBand: 1.2,
-                  cutPct: 0.1,
-                  raisePct: 0.1,
-                });
+                updateInput("guardrails", { ...DEFAULT_RETIREMENT_GUARDRAILS });
               }
 
               if (rule === "die_with_zero" && !inputs.dieWithZero) {

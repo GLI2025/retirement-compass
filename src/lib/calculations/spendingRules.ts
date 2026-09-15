@@ -1,4 +1,11 @@
-import type { CalculatorInputs, SpendingRule } from '@/types/calculator';
+import type { CalculatorInputs, GuardrailsConfig, SpendingRule } from '@/types/calculator';
+
+export const DEFAULT_RETIREMENT_GUARDRAILS: Readonly<GuardrailsConfig> = {
+  lowerBand: 0.8,
+  upperBand: 1.2,
+  cutPct: 0.1,
+  raisePct: 0.1,
+};
 
 export interface SpendingRuleContext {
   age: number;
@@ -40,12 +47,7 @@ export function applySpendingRule(inputs: CalculatorInputs, ctx: SpendingRuleCon
   }
 
   if (rule === 'guardrails') {
-    const g = inputs.guardrails ?? {
-      lowerBand: 0.75,
-      upperBand: 1.15,
-      cutPct: 0.10,
-      raisePct: 0.10
-    };
+    const g = inputs.guardrails ?? DEFAULT_RETIREMENT_GUARDRAILS;
 
     const baselineMonthlyWithdrawal = Math.max(0, ctx.baselinePortfolioWithdrawal);
 
