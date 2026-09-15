@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_INPUTS } from '@/lib/defaults';
+import {
+  applySpendingRule,
+  DEFAULT_RETIREMENT_GUARDRAILS,
+} from '@/lib/calculations/spendingRules';
 import { STRATEGIES, type CalculatorInputs, type CalculatorResults } from '@/types/calculator';
+import {
+  findDisplayedDepletionAge,
+  getFundingPresentation,
+} from '@/utils/resultPresentation';
 import {
   calculateOtherIncome,
   calculateRetirement,
@@ -265,6 +273,125 @@ describe('main retirement calculator financial contracts', () => {
     expect(balanceAt(fundedAtRetirement, 70)).toBeCloseTo(25000, 0);
     expect(fundedAtRetirement.targetStatus).toBe('met');
   });
+});
+
+describe('Guardrails and result-presentation contracts', () => {
+  it('uses one canonical default for Guardrails calculations and checkpoint bands', () => {
+    const inputs = contractInputs({
+      spendingRule: 'guardrails',
+      guardrails: undefined,
+    });
+    const results = calculateRetirement(inputs);
+    const retirementCheckpoint = checkpointAt(results, inputs.retirementAge);
+    const withdrawal = applySpendingRule(inputs, {
+      age: inputs.retirementAge,
+      monthIndexFromRetirement: 0,
+      remainingMonths: 12,
+      portfolioBalance: results.projectedAtRetirement,
+      retirementStartBalance: results.projectedAtRetirement,
+      baselinePortfolioWithdrawal: retirementCheckpoint.monthlyNeed,
+    });
+
+    expect(DEFAULT_RETIREMENT_GUARDRAILS).toEqual({
+      lowerBand: 0.8,
+      upperBand: 1.2,
+      cutPct: 0.1,
+      raisePct: 0.1,
+    });
+    expect(withdrawal).toBe(retirementCheckpoint.monthlyNeed);
+    expect(retirementCheckpoint.lowerGuardrailRate).toBeCloseTo(
+      retirementCheckpoint.targetWithdrawalRate! * DEFAULT_RETIREMENT_GUARDRAILS.lowerBand,
+    );
+    expect(retirementCheckpoint.upperGuardrailRate).toBeCloseTo(
+      retirementCheckpoint.targetWithdrawalRate! * DEFAULT_RETIREMENT_GUARDRAILS.upperBand,
+    );
+  });
+
+  it('presents a healthy within-band Guardrails checkpoint as good', () => {
+    const inputs = contractInputs({
+      spendingRule: 'guardrails',
+      guardrails: undefined,
+    });
+    const checkpoint = checkpointAt(calculateRetirement(inputs), inputs.retirementAge);
+
+    expect(checkpoint.guardrailAction).toBe('none');
+    expect(checkpoint.stressLevel).toBe('good');
+    expect(checkpoint.spendingGapKind).toBeUndefined();
+  });
+
+  it('identifies an intentional Guardrails cut without calling it an unfunded gap', () => {
+    const inputs = contractInputs({
+      currentAge: 64,
+      retirementAge: 65,
+      currentSavings: 500_000,
+      monthlyExpenses: 4_000,
+      spendingRule: 'guardrails',
+      guardrails: undefined,
+    });
+    const cutCheckpoint = calculateRetirement(inputs).checkpoints.find(
+      checkpoint => checkpoint.guardrailAction === 'cut' && checkpoint.portfolioBalance > 0,
+    );
+
+    expect(cutCheckpoint).toBeDefined();
+    expect(cutCheckpoint?.spendingGap).toBeGreaterThan(0);
+    expect(cutCheckpoint?.spendingGapKind).toBe('guardrail-adjustment');
+    expect(cutCheckpoint?.stressLevel).toBe('warn');
+  });
+
+  it('keeps checkpoints deterministic when Monte Carlo is enabled', () => {
+    const inputs = contractInputs({
+      currentAge: 64,
+      retirementAge: 65,
+      currentSavings: 500_000,
+      monthlyExpenses: 4_000,
+      spendingRule: 'guardrails',
+      guardrails: undefined,
+    });
+    const deterministic = calculateRetirement(inputs);
+    const monteCarlo = calculateRetirement(
+      { ...inputs, monteCarloEnabled: true },
+      { random: seededRandom(17) },
+    );
+
+    expect(monteCarlo.checkpoints).toEqual(deterministic.checkpoints);
+    expect(monteCarlo.chartData).not.toEqual(deterministic.chartData);
+  });
+
+  it('uses complete funded status—not gap sign—for screen and PDF presentation', () => {
+    expect(getFundingPresentation({ isOnTrack: false, gap: 10_000 })).toEqual({
+      isFunded: false,
+      label: 'Gap',
+      amount: 10_000,
+      sign: '-',
+    });
+    expect(getFundingPresentation({ isOnTrack: true, gap: 10_000 })).toEqual({
+      isFunded: true,
+      label: 'Surplus',
+      amount: 10_000,
+      sign: '+',
+    });
+  });
+
+  it.each(['fixed', 'guardrails'] as const)(
+    'reports displayed-path depletion for %s spending before plan end',
+    spendingRule => {
+      const inputs = contractInputs({
+        currentAge: 64,
+        retirementAge: 65,
+        currentSavings: 10_000,
+        monthlyExpenses: 4_000,
+        spendingRule,
+        guardrails: spendingRule === 'guardrails' ? undefined : DEFAULT_RETIREMENT_GUARDRAILS,
+      });
+      const results = calculateRetirement(inputs);
+
+      expect(findDisplayedDepletionAge(
+        results.chartData,
+        inputs.retirementAge,
+        results.planEndAge,
+      )).toBeDefined();
+    },
+  );
 });
 
 describe('Monte Carlo test scaffolding', () => {

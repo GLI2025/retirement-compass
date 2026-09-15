@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import { getFundingPresentation } from '@/utils/resultPresentation';
 
 export interface PDFExportData {
   results: {
@@ -40,6 +41,7 @@ export async function generateRetirementPDF(data: PDFExportData): Promise<Blob> 
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   let yPosition = 20;
+  const fundingPresentation = getFundingPresentation(data.results);
 
   // Header
   doc.setFontSize(24);
@@ -97,19 +99,19 @@ export async function generateRetirementPDF(data: PDFExportData): Promise<Blob> 
 
   yPosition += 8;
   doc.setTextColor(60, 60, 60);
-  doc.text(data.results.isOnTrack ? 'Surplus:' : 'Gap:', 20, yPosition);
-  if (data.results.isOnTrack) {
+  doc.text(`${fundingPresentation.label}:`, 20, yPosition);
+  if (fundingPresentation.isFunded) {
     doc.setTextColor(34, 197, 94);
-    doc.text(`+${formatCurrency(Math.abs(data.results.gap))}`, 100, yPosition);
+    doc.text(`${fundingPresentation.sign}${formatCurrency(fundingPresentation.amount)}`, 100, yPosition);
   } else {
     doc.setTextColor(234, 179, 8);
-    doc.text(`-${formatCurrency(Math.abs(data.results.gap))}`, 100, yPosition);
+    doc.text(`${fundingPresentation.sign}${formatCurrency(fundingPresentation.amount)}`, 100, yPosition);
   }
 
   // Status badge
   yPosition += 15;
   doc.setFontSize(14);
-  if (data.results.isOnTrack) {
+  if (fundingPresentation.isFunded) {
     doc.setTextColor(34, 197, 94);
     doc.text('You are on track for retirement!', 20, yPosition);
   } else {

@@ -34,7 +34,11 @@ export function IncomeCheckpoints({ checkpoints, inputs }: IncomeCheckpointsProp
 
   return (
     <div className="glass-card p-4 sm:p-6">
-      <h3 className="text-lg font-semibold mb-4">Retirement Income Checkpoints</h3>
+      <h3 className="text-lg font-semibold">Retirement Income Checkpoints</h3>
+      <p className="mb-4 mt-1 text-xs text-muted-foreground">
+        Deterministic checkpoints based on the selected expected return.
+        {inputs.monteCarloEnabled && ' Monte Carlo ranges and probability are shown separately above.'}
+      </p>
 
       <div className="space-y-3">
         {checkpoints.map((c) => {
@@ -120,8 +124,20 @@ export function IncomeCheckpoints({ checkpoints, inputs }: IncomeCheckpointsProp
                 </div>
 
                 {spendingGapMonthly > 0.5 && (
-                  <div className="col-span-2 text-destructive" title={annualTip(spendingGapMonthly)}>
-                    <span className="font-medium">Planned Spending Gap:</span>{' '}
+                  <div
+                    className={cn(
+                      'col-span-2',
+                      c.spendingGapKind === 'guardrail-adjustment'
+                        ? 'text-warning'
+                        : 'text-destructive'
+                    )}
+                    title={annualTip(spendingGapMonthly)}
+                  >
+                    <span className="font-medium">
+                      {c.spendingGapKind === 'guardrail-adjustment'
+                        ? 'Intentional Guardrails Cut:'
+                        : 'Unfunded Spending Gap:'}
+                    </span>{' '}
                     {formatCurrency(spendingGapMonthly)}/mo
                   </div>
                 )}

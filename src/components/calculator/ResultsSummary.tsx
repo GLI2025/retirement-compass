@@ -8,6 +8,7 @@ import {
 import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown, Target, Wallet } from 'lucide-react';
 import { yearsFromNow, toTodayDollars } from '@/utils/money';
+import { getFundingPresentation } from '@/utils/resultPresentation';
 
 interface ResultsSummaryProps {
   results: CalculatorResults;
@@ -37,7 +38,8 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
 
   const requiredSavingsAboveLimit = results.requiredSavingsStatus === 'no-solution';
   const requiredSavingsLabel = `${formatCurrency(requiredSavings)}${requiredSavingsAboveLimit ? '+' : ''}`;
-  const isSurplus = gap >= 0;
+  const fundingPresentation = getFundingPresentation(results);
+  const isSurplus = fundingPresentation.isFunded;
   const hasMC = typeof successProbability === 'number';
   const heldUpCount = hasMC ? Math.round((successProbability ?? 0) * MONTE_CARLO_RUNS) : 0;
   const successPercent = hasMC ? Math.round((successProbability ?? 0) * 100) : 0;
@@ -217,7 +219,7 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
               <TrendingDown className="w-5 h-5 text-warning" />
             )}
             <span className="text-sm font-medium text-muted-foreground">
-              {hasMC ? 'Deterministic ' : ''}{isSurplus ? 'Surplus' : 'Gap'}
+              {hasMC ? 'Deterministic ' : ''}{fundingPresentation.label}
             </span>
           </div>
 
@@ -227,8 +229,8 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
               isSurplus ? 'text-success' : 'text-warning'
             )}
           >
-            {isSurplus ? '+' : '-'}
-            {formatCurrency(Math.abs(gap))}
+            {fundingPresentation.sign}
+            {formatCurrency(fundingPresentation.amount)}
           </div>
 
           <p className="text-xs text-muted-foreground mt-2">

@@ -9,6 +9,7 @@ import {
 
 import {
   applySpendingRule,
+  DEFAULT_RETIREMENT_GUARDRAILS,
   getDieWithZeroTargetBalance
 } from '@/lib/calculations/spendingRules';
 import { DEFAULT_INPUTS, DEFAULT_LIFE_EXPECTANCY } from '@/lib/defaults';
@@ -595,25 +596,20 @@ function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint
   let guardrailAction: 'raise' | 'cut' | 'none' = 'none';
 
   if (inputs.spendingRule === 'guardrails') {
-    const g = inputs.guardrails ?? {
-      lowerBand: 0.75,
-      upperBand: 1.15,
-      cutPct: 0.10,
-      raisePct: 0.10
-    };
+    const g = inputs.guardrails ?? DEFAULT_RETIREMENT_GUARDRAILS;
 
     lowerGuardrailRate = targetWithdrawalRate * g.lowerBand;
     upperGuardrailRate = targetWithdrawalRate * g.upperBand;
 
     if (currentBaselineWithdrawalRate > upperGuardrailRate) {
       guardrailAction = 'cut';
-      status = 'bad';
+      status = 'warn';
     } else if (currentBaselineWithdrawalRate < lowerGuardrailRate) {
       guardrailAction = 'raise';
       status = 'good';
     } else {
       guardrailAction = 'none';
-      status = 'warn';
+      status = 'good';
     }
   } else if (inputs.spendingRule === 'die_with_zero') {
     status = targetStatus ? (targetStatus === 'met' ? 'good' : targetStatus === 'buffer-short' ? 'warn' : 'bad') : depletesBeforeTarget
@@ -630,6 +626,12 @@ function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint
 
   if (balance < 1 && spendingGap > 0.5 && !isPlanEnd) status = 'bad';
 
+  const spendingGapKind = spendingGap > 0.5
+    ? inputs.spendingRule === 'guardrails' && guardrailAction === 'cut' && balance >= 1
+      ? 'guardrail-adjustment' as const
+      : 'unfunded' as const
+    : undefined;
+
   return {
     age,
     label: labelForAge(inputs, age),
@@ -638,6 +640,7 @@ function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint
     otherIncome,
     fromPortfolio,
     spendingGap,
+    spendingGapKind,
     portfolioBalance: balance,
     withdrawalRate: actualWithdrawalRate,
     stressLevel: status,
@@ -940,9 +943,14 @@ export function calculateRetirement(
     chartData = deterministicProjection.chartData;
   }
 
-  const targetStatus = inputs.spendingRule === 'die_with_zero' && !inputs.monteCarloEnabled
+  const deterministicTargetStatus = inputs.spendingRule === 'die_with_zero'
     ? assessTarget(inputs, deterministicProjection) : undefined;
-  const checkpoints = generateCheckpoints(inputs, chartData, targetStatus);
+  const targetStatus = inputs.monteCarloEnabled ? undefined : deterministicTargetStatus;
+  const checkpoints = generateCheckpoints(
+    inputs,
+    deterministicProjection.chartData,
+    deterministicTargetStatus,
+  );
   const sustainableMonthlySpending = gap < 0 || inputs.spendingRule === 'die_with_zero'
     ? calculateSustainableMonthlySpending(inputs)
     : undefined;

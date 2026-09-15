@@ -11,6 +11,7 @@ import {
 import { ChartDataPoint } from '@/types/calculator';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MONTE_CARLO_RUNS } from '@/utils/calculations';
+import { findDisplayedDepletionAge } from '@/utils/resultPresentation';
 
 interface PortfolioChartProps {
   data: ChartDataPoint[];
@@ -18,7 +19,6 @@ interface PortfolioChartProps {
   ssClaimAge?: number;
   monteCarloEnabled?: boolean;
   successProbability?: number;
-  dieWithZeroTargetAge?: number;
   planEndAge: number;
   requiredEndingBalance: number;
 }
@@ -78,15 +78,12 @@ export function PortfolioChart({
   ssClaimAge, 
   monteCarloEnabled,
   successProbability,
-  dieWithZeroTargetAge,
   planEndAge,
   requiredEndingBalance,
 }: PortfolioChartProps) {
   const isMobile = useIsMobile();
-  const depletionAge = dieWithZeroTargetAge
-    ? data.find(point => point.age >= retirementAge && point.balance < 1)?.age
-    : undefined;
-  const depletesEarly = depletionAge !== undefined && depletionAge < dieWithZeroTargetAge;
+  const depletionAge = findDisplayedDepletionAge(data, retirementAge, planEndAge);
+  const depletesEarly = depletionAge !== undefined;
 
   return (
     <div className="glass-card p-4 sm:p-6">
@@ -96,7 +93,7 @@ export function PortfolioChart({
           {depletesEarly && (
             <p className="mt-1 text-sm font-medium text-destructive">
               {monteCarloEnabled ? 'The median simulated path' : 'At your requested spending, the portfolio'} reaches $0 around age {depletionAge},
-              before the age-{dieWithZeroTargetAge} target.
+              before the age-{planEndAge} plan end.
             </p>
           )}
         </div>
