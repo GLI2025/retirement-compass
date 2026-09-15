@@ -192,6 +192,31 @@ Cash-flow conventions:
   at $0. The excess is intentionally ignored rather than added to the portfolio;
   changing that meaning requires a separate approved financial-contract decision.
 
+Income Checkpoint status contract:
+
+Checkpoint colors are presentation over the deterministic projection. They report
+the same funded status as Required Savings, the headline, and the deterministic
+chart, and they never depend on a snapshot withdrawal-rate threshold such as 4%
+or 6%. `resolveCheckpointStress` in `src/utils/resultPresentation.ts` owns the
+rule; `generateCheckpoints` supplies the strict projection outcome.
+
+- Fixed: green while the deterministic plan stays funded through plan end, amber
+  when the plan is projected to deplete later but has not depleted by this
+  checkpoint, red at or after depletion or when the applicable withdrawal cannot
+  be funded.
+- Guardrails: a normal or raise action is green, a planned cut is amber, and
+  actual depletion or an unfunded withdrawal is red. A complete path that
+  depletes is never green, so a normal action cannot hide the failure.
+- Die With Zero: green when the selected target age and ending buffer are met,
+  amber for an ending-buffer shortfall without premature depletion, red at or
+  after premature depletion.
+- Depletion comes from the strict deterministic projection, not from scanning the
+  yearly chart for a zero balance. A later deposit can lift the chart back above
+  zero, and the established contract still treats that path as failed, so
+  checkpoints at or after depletion stay red.
+- A funded plan therefore cannot show a green On Track headline alongside red or
+  amber Fixed-spending checkpoints.
+
 Where to make changes safely (common tasks)
 Add / remove a UI section
 

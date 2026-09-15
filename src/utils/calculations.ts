@@ -20,6 +20,10 @@ import {
   normalizeHousingInputs,
 } from '@/lib/calculations/housing';
 import { DEFAULT_INPUTS, DEFAULT_LIFE_EXPECTANCY } from '@/lib/defaults';
+import {
+  resolveCheckpointStress,
+  type DeterministicPlanOutcome,
+} from '@/utils/resultPresentation';
 
 const LIFE_EXPECTANCY = DEFAULT_LIFE_EXPECTANCY;
 
@@ -535,13 +539,26 @@ function labelForAge(inputs: CalculatorInputs, age: number): string {
   return labels.length ? labels.join(' / ') : `At Age ${age}`;
 }
 
-function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint[], targetStatus?: CalculatorResults['targetStatus']): IncomeCheckpoint[] {
+function generateCheckpoints(
+  inputs: CalculatorInputs,
+  projection: DeterministicProjection,
+  targetStatus?: CalculatorResults['targetStatus'],
+): IncomeCheckpoint[] {
+  const chartData = projection.chartData;
   const ages = getCheckpointAges(inputs);
   const endAge = getEndAge(inputs);
-  const depletionAge = chartData.find(
-    point => point.age >= inputs.retirementAge && point.balance < 1
-  )?.age;
-  const depletesBeforeTarget = depletionAge !== undefined && depletionAge < endAge;
+
+  // Checkpoint colors report the same funded status as Required Savings, the
+  // headline, and the deterministic chart.
+  const planOutcome: DeterministicPlanOutcome = {
+    spendingRule: inputs.spendingRule ?? 'fixed',
+    depletionAge: projection.depletionAge,
+    funded: evaluatePlanPathSuccess(inputs, {
+      endingBalance: projection.planEndBalance,
+      depletedBeforePlanEnd: projection.depletedBeforeTarget,
+    }),
+    targetStatus,
+  };
 
   const retirementStrategy = inputs.retirementStrategyEnabled
     ? STRATEGIES[inputs.retirementStrategy]
@@ -600,7 +617,6 @@ function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint
       ? annualActualWithdrawal / balance
       : (annualActualWithdrawal > 0 ? Infinity : 0);
 
-  let status: 'good' | 'warn' | 'bad' = 'good';
   let lowerGuardrailRate: number | undefined;
   let upperGuardrailRate: number | undefined;
   let guardrailAction: 'raise' | 'cut' | 'none' = 'none';
@@ -613,28 +629,18 @@ function generateCheckpoints(inputs: CalculatorInputs, chartData: ChartDataPoint
 
     if (currentBaselineWithdrawalRate > upperGuardrailRate) {
       guardrailAction = 'cut';
-      status = 'warn';
     } else if (currentBaselineWithdrawalRate < lowerGuardrailRate) {
       guardrailAction = 'raise';
-      status = 'good';
-    } else {
-      guardrailAction = 'none';
-      status = 'good';
     }
-  } else if (inputs.spendingRule === 'die_with_zero') {
-    status = targetStatus ? (targetStatus === 'met' ? 'good' : targetStatus === 'buffer-short' ? 'warn' : 'bad') : depletesBeforeTarget
-      ? 'bad'
-      : (isPlanEnd && balance >= 1 ? 'warn' : 'good');
-  } else {
-    const yearsPast70 = Math.max(0, age - 70);
-    const warnThreshold = Math.min(0.10, 0.04 + yearsPast70 * 0.001);
-    const badThreshold = Math.min(0.12, 0.06 + yearsPast70 * 0.001);
-
-    if (actualWithdrawalRate >= badThreshold) status = 'bad';
-    else if (actualWithdrawalRate >= warnThreshold) status = 'warn';
   }
 
-  if (balance < 1 && spendingGap > 0.5 && !isPlanEnd) status = 'bad';
+  const status = resolveCheckpointStress(planOutcome, {
+    age,
+    portfolioBalance: balance,
+    requestedPortfolioWithdrawal: requestedFromPortfolio,
+    isPlanEndAge: age === endAge,
+    guardrailAction,
+  });
 
   const spendingGapKind = spendingGap > 0.5
     ? inputs.spendingRule === 'guardrails' && guardrailAction === 'cut' && balance >= 1
@@ -975,7 +981,7 @@ export function calculateRetirement(
   const targetStatus = inputs.monteCarloEnabled ? undefined : deterministicTargetStatus;
   const checkpoints = generateCheckpoints(
     inputs,
-    deterministicProjection.chartData,
+    deterministicProjection,
     deterministicTargetStatus,
   );
   const sustainableSpending: SustainableSpendingSolution =

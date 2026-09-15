@@ -12,7 +12,7 @@ exports[`retirement calculator baselines > preserves an early-retirement result 
       "otherIncome": 0,
       "portfolioBalance": 1673661,
       "ssIncome": 0,
-      "stressLevel": "warn",
+      "stressLevel": "good",
       "withdrawalRate": 0.0521,
     },
     {
@@ -23,7 +23,7 @@ exports[`retirement calculator baselines > preserves an early-retirement result 
       "otherIncome": 0,
       "portfolioBalance": 1811121,
       "ssIncome": 0,
-      "stressLevel": "warn",
+      "stressLevel": "good",
       "withdrawalRate": 0.052993,
     },
     {
@@ -34,7 +34,7 @@ exports[`retirement calculator baselines > preserves an early-retirement result 
       "otherIncome": 0,
       "portfolioBalance": 1949349,
       "ssIncome": 0,
-      "stressLevel": "warn",
+      "stressLevel": "good",
       "withdrawalRate": 0.05433,
     },
     {
@@ -45,7 +45,7 @@ exports[`retirement calculator baselines > preserves an early-retirement result 
       "otherIncome": 0,
       "portfolioBalance": 2003428,
       "ssIncome": 0,
-      "stressLevel": "warn",
+      "stressLevel": "good",
       "withdrawalRate": 0.055024,
     },
     {
@@ -56,7 +56,7 @@ exports[`retirement calculator baselines > preserves an early-retirement result 
       "otherIncome": 0,
       "portfolioBalance": 2081483,
       "ssIncome": 0,
-      "stressLevel": "warn",
+      "stressLevel": "good",
       "withdrawalRate": 0.046478,
     },
     {
@@ -238,7 +238,7 @@ exports[`retirement calculator baselines > preserves the default calculator resu
       "otherIncome": 0,
       "portfolioBalance": 805142,
       "ssIncome": 3832,
-      "stressLevel": "bad",
+      "stressLevel": "warn",
       "withdrawalRate": 0.074251,
     },
     {
@@ -249,7 +249,7 @@ exports[`retirement calculator baselines > preserves the default calculator resu
       "otherIncome": 0,
       "portfolioBalance": 757742,
       "ssIncome": 4188,
-      "stressLevel": "bad",
+      "stressLevel": "warn",
       "withdrawalRate": 0.086211,
     },
     {
@@ -260,7 +260,7 @@ exports[`retirement calculator baselines > preserves the default calculator resu
       "otherIncome": 0,
       "portfolioBalance": 527030,
       "ssIncome": 5150,
-      "stressLevel": "bad",
+      "stressLevel": "warn",
       "withdrawalRate": 0.152444,
     },
     {

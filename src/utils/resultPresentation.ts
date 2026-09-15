@@ -1,4 +1,8 @@
-import type { ChartDataPoint } from '@/types/calculator';
+import type {
+  ChartDataPoint,
+  IncomeCheckpoint,
+  SpendingRule,
+} from '@/types/calculator';
 
 export interface FundingPresentationInput {
   isOnTrack: boolean;
@@ -26,4 +30,64 @@ export function findDisplayedDepletionAge(
   return depletionAge !== undefined && depletionAge < planEndAge
     ? depletionAge
     : undefined;
+}
+
+export type CheckpointStressLevel = IncomeCheckpoint['stressLevel'];
+
+// The deterministic plan-level facts a checkpoint color is allowed to depend on.
+// These come from the strict deterministic projection, never from scanning the
+// yearly chart for a zero balance: a later deposit can lift the chart back above
+// zero while the plan is already treated as failed.
+export interface DeterministicPlanOutcome {
+  spendingRule: SpendingRule;
+  // Fractional age at which the strict projection first failed, undefined when
+  // the path never depletes before plan end.
+  depletionAge?: number;
+  // Funded status used by Required Savings, the headline, and the chart.
+  funded: boolean;
+  // Die With Zero target assessment, including its ending buffer.
+  targetStatus?: 'met' | 'buffer-short' | 'depleted';
+}
+
+export interface CheckpointStatusPoint {
+  age: number;
+  portfolioBalance: number;
+  requestedPortfolioWithdrawal: number;
+  isPlanEndAge: boolean;
+  guardrailAction: 'raise' | 'cut' | 'none';
+}
+
+// Income Checkpoint colors report funded status, not a snapshot withdrawal rate:
+// green while the deterministic plan stays funded through plan end, amber when it
+// is projected to fail later, red at or after the failure itself.
+export function resolveCheckpointStress(
+  plan: DeterministicPlanOutcome,
+  point: CheckpointStatusPoint,
+): CheckpointStressLevel {
+  const depletedByCheckpoint = plan.depletionAge !== undefined
+    && point.age >= plan.depletionAge;
+  // No withdrawal is taken at plan end, so the need shown on that card is
+  // outside the funded horizon.
+  const cannotFundWithdrawal = !point.isPlanEndAge
+    && point.portfolioBalance < 1
+    && point.requestedPortfolioWithdrawal > 0.5;
+
+  if (depletedByCheckpoint || cannotFundWithdrawal) return 'bad';
+
+  const planFailsLater = plan.depletionAge !== undefined || !plan.funded;
+
+  if (plan.spendingRule === 'die_with_zero') {
+    // A buffer shortfall without premature depletion stays amber, and depletion
+    // that happens after this checkpoint does not backdate red onto it.
+    const targetMet = plan.targetStatus ? plan.targetStatus === 'met' : plan.funded;
+    return targetMet && !planFailsLater ? 'good' : 'warn';
+  }
+
+  // A complete path that fails later is never presented as healthy, so a normal
+  // Guardrails action cannot hide it.
+  if (planFailsLater) return 'warn';
+
+  return plan.spendingRule === 'guardrails' && point.guardrailAction === 'cut'
+    ? 'warn'
+    : 'good';
 }

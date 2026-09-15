@@ -315,12 +315,17 @@ describe('Guardrails and result-presentation contracts', () => {
   });
 
   it('presents a healthy within-band Guardrails checkpoint as good', () => {
+    // The plan has to remain funded through plan end: a within-band action on a
+    // path that depletes later is amber, not green.
     const inputs = contractInputs({
+      currentSavings: 1_500_000,
       spendingRule: 'guardrails',
       guardrails: undefined,
     });
-    const checkpoint = checkpointAt(calculateRetirement(inputs), inputs.retirementAge);
+    const results = calculateRetirement(inputs);
+    const checkpoint = checkpointAt(results, inputs.retirementAge);
 
+    expect(results.deterministicFunded).toBe(true);
     expect(checkpoint.guardrailAction).toBe('none');
     expect(checkpoint.stressLevel).toBe('good');
     expect(checkpoint.spendingGapKind).toBeUndefined();
