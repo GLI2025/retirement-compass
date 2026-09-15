@@ -1,4 +1,5 @@
 import type { CalculatorInputs, GuardrailsConfig, SpendingRule } from '@/types/calculator';
+import { DEFAULT_LIFE_EXPECTANCY } from '@/lib/defaults';
 
 export const DEFAULT_RETIREMENT_GUARDRAILS: Readonly<GuardrailsConfig> = {
   lowerBand: 0.8,
@@ -6,6 +7,19 @@ export const DEFAULT_RETIREMENT_GUARDRAILS: Readonly<GuardrailsConfig> = {
   cutPct: 0.1,
   raisePct: 0.1,
 };
+
+export const MAX_DIE_WITH_ZERO_AGE = 120;
+
+export function getNormalizedDieWithZeroTargetAge(inputs: CalculatorInputs): number {
+  const requestedTargetAge = Number.isFinite(inputs.dieWithZero?.targetAge)
+    ? Math.round(inputs.dieWithZero!.targetAge)
+    : DEFAULT_LIFE_EXPECTANCY;
+
+  return Math.max(
+    inputs.retirementAge + 1,
+    Math.min(requestedTargetAge, MAX_DIE_WITH_ZERO_AGE),
+  );
+}
 
 export interface SpendingRuleContext {
   age: number;
@@ -32,7 +46,7 @@ export function getDieWithZeroTargetBalance(inputs: CalculatorInputs): number {
   const bufferToday = Math.max(0, inputs.dieWithZero?.bufferAmount ?? 0);
   if (!inputs.inflationEnabled) return bufferToday;
 
-  const targetAge = inputs.dieWithZero?.targetAge ?? inputs.retirementAge;
+  const targetAge = getNormalizedDieWithZeroTargetAge(inputs);
   const yearsToTarget = Math.max(0, targetAge - inputs.currentAge);
   const inflationRate = Math.max(0, inputs.inflationRate ?? 0) / 100;
   return bufferToday * Math.pow(1 + inflationRate, yearsToTarget);
