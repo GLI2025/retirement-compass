@@ -348,6 +348,45 @@ describe('Guardrails and result-presentation contracts', () => {
     expect(cutCheckpoint?.spendingGap).toBeGreaterThan(0);
     expect(cutCheckpoint?.spendingGapKind).toBe('guardrail-adjustment');
     expect(cutCheckpoint?.stressLevel).toBe('warn');
+    expect(cutCheckpoint?.plannedFromPortfolio).toBeCloseTo(
+      getRetirementCashFlow(inputs, cutCheckpoint!.age).requestedPortfolioWithdrawal,
+      6,
+    );
+    expect(cutCheckpoint!.fromPortfolio).toBeLessThan(cutCheckpoint!.plannedFromPortfolio!);
+  });
+
+  it('exposes Guardrails comparison data without adding it to other strategies', () => {
+    const shared = contractInputs({
+      currentSavings: 1_500_000,
+      monthlyExpenses: 4_000,
+    });
+    const fixedCheckpoint = checkpointAt(
+      calculateRetirement({ ...shared, spendingRule: 'fixed' }),
+      shared.retirementAge,
+    );
+    const guardrailsCheckpoint = checkpointAt(
+      calculateRetirement({ ...shared, spendingRule: 'guardrails' }),
+      shared.retirementAge,
+    );
+    const dieWithZeroCheckpoint = checkpointAt(
+      calculateRetirement({
+        ...shared,
+        spendingRule: 'die_with_zero',
+        dieWithZero: { targetAge: 90, bufferAmount: 0 },
+      }),
+      shared.retirementAge,
+    );
+
+    expect(fixedCheckpoint.plannedFromPortfolio).toBeUndefined();
+    expect(dieWithZeroCheckpoint.plannedFromPortfolio).toBeUndefined();
+    expect(guardrailsCheckpoint.plannedFromPortfolio).toBeCloseTo(
+      getRetirementCashFlow(shared, shared.retirementAge).requestedPortfolioWithdrawal,
+      6,
+    );
+    expect(calculateRetirement({ ...shared, spendingRule: 'fixed' }).checkpoints.at(-1)?.isPlanEnd)
+      .toBe(true);
+    expect(calculateRetirement({ ...shared, spendingRule: 'guardrails' }).checkpoints.at(-1)?.isPlanEnd)
+      .toBe(true);
   });
 
   it('keeps checkpoints deterministic when Monte Carlo is enabled', () => {
