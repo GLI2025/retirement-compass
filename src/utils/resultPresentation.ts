@@ -87,7 +87,7 @@ export function resolveCheckpointStress(
   // Guardrails action cannot hide it.
   if (planFailsLater) return 'warn';
 
-  return plan.spendingRule === 'guardrails' && point.guardrailAction === 'cut'
-    ? 'warn'
-    : 'good';
+  // Guardrails actions are intentional strategy decisions. Keep plan health
+  // green here and present any increase or reduction separately in the UI.
+  return 'good';
 }

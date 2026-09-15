@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_INPUTS } from '@/lib/defaults';
 import type { IncomeCheckpoint } from '@/types/calculator';
 import {
   getGuardrailDecision,
+  getGuardrailRatePresentation,
   getGuardrailScale,
-  getStrategyCheckpointExplanation,
 } from '@/utils/checkpointPresentation';
 
 function checkpoint(overrides: Partial<IncomeCheckpoint> = {}): IncomeCheckpoint {
@@ -27,41 +26,6 @@ function checkpoint(overrides: Partial<IncomeCheckpoint> = {}): IncomeCheckpoint
 }
 
 describe('checkpoint strategy presentation', () => {
-  it('explains Fixed Spending without promising automatic adjustments', () => {
-    const explanation = getStrategyCheckpointExplanation({
-      ...DEFAULT_INPUTS,
-      spendingRule: 'fixed',
-    });
-
-    expect(explanation.title).toBe('How Fixed Spending works');
-    expect(explanation.description).toContain('does not automatically adjust spending');
-  });
-
-  it('explains Guardrails as rule-based portfolio withdrawal adjustments', () => {
-    const explanation = getStrategyCheckpointExplanation({
-      ...DEFAULT_INPUTS,
-      spendingRule: 'guardrails',
-    });
-
-    expect(explanation.title).toBe('How Guardrails responds');
-    expect(explanation.description).toContain('planned cut');
-    expect(explanation.description).toContain('portfolio withdrawal');
-  });
-
-  it('explains the normalized Die With Zero target and today-dollar buffer', () => {
-    const explanation = getStrategyCheckpointExplanation({
-      ...DEFAULT_INPUTS,
-      retirementAge: 67,
-      spendingRule: 'die_with_zero',
-      dieWithZero: { targetAge: 95, bufferAmount: 50_000 },
-    });
-
-    expect(explanation.title).toBe('How Die With Zero is evaluated');
-    expect(explanation.description).toContain('age 95');
-    expect(explanation.description).toContain('$50,000 ending buffer in today’s dollars');
-    expect(explanation.description).toContain('does not change your spending');
-  });
-
   it('presents a within-range Guardrails checkpoint without an adjustment', () => {
     const decision = getGuardrailDecision(checkpoint());
 
@@ -79,7 +43,7 @@ describe('checkpoint strategy presentation', () => {
       stressLevel: 'warn',
     }));
 
-    expect(decision.label).toBe('Planned Spending Cut');
+    expect(decision.label).toBe('Reduce 10%');
     expect(decision.adjustmentAmount).toBe(350);
     expect(decision.resultingTotalSpending).toBe(4_650);
     expect(decision.description).not.toContain('gap');
@@ -91,7 +55,7 @@ describe('checkpoint strategy presentation', () => {
       guardrailAction: 'raise',
     }));
 
-    expect(decision.label).toBe('Planned Spending Increase');
+    expect(decision.label).toBe('Increase 10%');
     expect(decision.adjustmentAmount).toBe(350);
     expect(decision.resultingTotalSpending).toBe(5_350);
   });
@@ -132,6 +96,29 @@ describe('checkpoint strategy presentation', () => {
       current: 0,
       lower: 0,
       upper: 0,
+    });
+  });
+
+  it('describes rates above the reduction trigger in percentage points', () => {
+    expect(getGuardrailRatePresentation(0.206, 0.092, 0.138)).toEqual({
+      zone: 'reduce',
+      label: 'Above Reduction Trigger',
+      comparisonLabel: '6.8 percentage points above the trigger',
+    });
+  });
+
+  it('distinguishes increase, hold, and reduction zones at their exact boundaries', () => {
+    expect(getGuardrailRatePresentation(0.091, 0.092, 0.138).zone).toBe('increase');
+    expect(getGuardrailRatePresentation(0.092, 0.092, 0.138).zone).toBe('hold');
+    expect(getGuardrailRatePresentation(0.138, 0.092, 0.138).zone).toBe('hold');
+    expect(getGuardrailRatePresentation(0.139, 0.092, 0.138).zone).toBe('reduce');
+  });
+
+  it('does not describe a depleted portfolio as being below the increase trigger', () => {
+    expect(getGuardrailRatePresentation(Infinity, 0.092, 0.138)).toEqual({
+      zone: 'unavailable',
+      label: 'Current Rate Unavailable',
+      comparisonLabel: 'The portfolio has no balance available for a withdrawal-rate comparison',
     });
   });
 });

@@ -3,8 +3,8 @@ import { cn } from '@/lib/utils';
 import { getNormalizedDieWithZeroTargetAge } from '@/lib/calculations/spendingRules';
 import {
   getGuardrailDecision,
+  getGuardrailRatePresentation,
   getGuardrailScale,
-  getStrategyCheckpointExplanation,
 } from '@/utils/checkpointPresentation';
 import { toTodayDollarsAtAge } from '@/utils/money';
 
@@ -33,7 +33,7 @@ function CheckpointStatusBadge({ checkpoint }: { checkpoint: IncomeCheckpoint })
     ? 'Funded'
     : checkpoint.stressLevel === 'bad'
       ? checkpoint.portfolioBalance > 0 ? 'Depleted earlier' : 'Portfolio depleted'
-      : checkpoint.guardrailAction === 'cut' ? 'Planned adjustment' : 'Needs attention';
+      : 'Needs attention';
 
   return (
     <span
@@ -54,7 +54,14 @@ function GuardrailDecision({ checkpoint }: { checkpoint: IncomeCheckpoint }) {
   const lowerRate = checkpoint.lowerGuardrailRate ?? 0;
   const upperRate = checkpoint.upperGuardrailRate ?? 0;
   const decision = getGuardrailDecision(checkpoint);
+  const ratePresentation = getGuardrailRatePresentation(currentRate, lowerRate, upperRate);
   const scale = getGuardrailScale(currentRate, lowerRate, upperRate);
+  const markerPosition = `${scale.current}%`;
+  const markerAlignment = scale.current >= 85
+    ? '-translate-x-full'
+    : scale.current <= 15
+      ? 'translate-x-0'
+      : '-translate-x-1/2';
 
   return (
     <div className="col-span-full mt-3 rounded-xl border border-white/10 bg-background/30 p-3 text-foreground">
@@ -81,34 +88,86 @@ function GuardrailDecision({ checkpoint }: { checkpoint: IncomeCheckpoint }) {
           <div className="text-xs text-muted-foreground">Planned from portfolio</div>
           <div className="font-semibold">{formatCurrency(decision.plannedPortfolioWithdrawal)}/mo</div>
         </div>
-        <span className="hidden text-muted-foreground sm:block" aria-hidden="true">→</span>
+        <div className="hidden text-center text-xs font-semibold text-muted-foreground sm:block">
+          {decision.label}
+          <div aria-hidden="true">→</div>
+        </div>
         <div className="sm:text-right">
           <div className="text-xs text-muted-foreground">After Guardrails</div>
           <div className="font-semibold">{formatCurrency(decision.actualPortfolioWithdrawal)}/mo</div>
         </div>
       </div>
 
-      <div className="mt-4">
-        <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
-          <span>Selected range: {formatPercent(lowerRate)}–{formatPercent(upperRate)}</span>
-          <span>Current rate: {formatPercent(currentRate)}</span>
+      <div
+        className={cn(
+          'mt-4 rounded-lg border p-3',
+          ratePresentation.zone === 'reduce' && 'border-warning/35 bg-warning/5',
+          ratePresentation.zone === 'increase' && 'border-primary/35 bg-primary/5',
+          ratePresentation.zone === 'hold' && 'border-success/35 bg-success/5',
+          ratePresentation.zone === 'unavailable' && 'border-destructive/35 bg-destructive/5',
+        )}
+      >
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {ratePresentation.label}
         </div>
+        <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <span className="text-2xl font-bold">{formatPercent(currentRate)}</span>
+          <span className="text-sm text-muted-foreground">current planned withdrawal rate</span>
+        </div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          {ratePresentation.comparisonLabel}
+        </div>
+      </div>
+
+      {ratePresentation.zone !== 'unavailable' && <div className="mt-5">
         <div
-          className="relative mt-2 h-2 rounded-full bg-muted"
+          className="relative mt-10 h-3 rounded-full bg-muted"
           role="img"
-          aria-label={`Guardrails range ${formatPercent(lowerRate)} to ${formatPercent(upperRate)}; current withdrawal rate ${formatPercent(currentRate)}`}
+          aria-label={`Current planned withdrawal rate ${formatPercent(currentRate)}. Increase withdrawal below ${formatPercent(lowerRate)}. No adjustment from ${formatPercent(lowerRate)} through ${formatPercent(upperRate)}. Reduce withdrawal above ${formatPercent(upperRate)}.`}
         >
           <div
-            className="absolute inset-y-0 rounded-full bg-success/50"
+            className="absolute inset-y-0 left-0 rounded-l-full bg-primary/55"
+            style={{ width: `${scale.lower}%` }}
+          />
+          <div
+            className="absolute inset-y-0 bg-success/60"
             style={{ left: `${scale.lower}%`, width: `${Math.max(0, scale.upper - scale.lower)}%` }}
           />
+          <div
+            className="absolute inset-y-0 right-0 rounded-r-full bg-warning/60"
+            style={{ width: `${Math.max(0, 100 - scale.upper)}%` }}
+          />
           <span
-            className="absolute top-1/2 h-4 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground"
-            style={{ left: `${scale.current}%` }}
+            className={cn(
+              'absolute bottom-full mb-2 whitespace-nowrap rounded-md border border-foreground/30 bg-background px-2 py-1 text-xs font-bold text-foreground shadow-sm',
+              markerAlignment,
+            )}
+            style={{ left: markerPosition }}
+            aria-hidden="true"
+          >
+            {formatPercent(currentRate)} current
+          </span>
+          <span
+            className="absolute top-1/2 h-6 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground shadow-[0_0_0_2px_hsl(var(--background))]"
+            style={{ left: markerPosition }}
             aria-hidden="true"
           />
         </div>
-      </div>
+        <div className="mt-2 grid grid-cols-3 gap-2 text-[11px] leading-tight text-muted-foreground">
+          <div>
+            <span className="font-semibold text-primary">Increase withdrawal</span>
+            <div>Below {formatPercent(lowerRate)}</div>
+          </div>
+          <div className="text-center">
+            <span className="font-semibold text-success">No adjustment</span>
+            <div>{formatPercent(lowerRate)}–{formatPercent(upperRate)}</div>
+          </div>
+          <div className="text-right">
+            <span className="font-semibold text-warning">Reduce withdrawal</span>
+            <div>Above {formatPercent(upperRate)}</div>
+          </div>
+        </div>
+      </div>}
 
       <p className="mt-3 text-sm text-muted-foreground">{decision.description}</p>
       <p className="mt-2 text-sm">
@@ -123,7 +182,6 @@ function GuardrailDecision({ checkpoint }: { checkpoint: IncomeCheckpoint }) {
 export function IncomeCheckpoints({ checkpoints, inputs }: IncomeCheckpointsProps) {
   if (!checkpoints?.length) return null;
 
-  const explanation = getStrategyCheckpointExplanation(inputs);
   const dieWithZeroTargetAge = getNormalizedDieWithZeroTargetAge(inputs);
   const dieWithZeroBuffer = Math.max(0, inputs.dieWithZero?.bufferAmount ?? 0);
 
@@ -135,12 +193,12 @@ export function IncomeCheckpoints({ checkpoints, inputs }: IncomeCheckpointsProp
         {inputs.monteCarloEnabled && ' Monte Carlo ranges and probability are shown separately above.'}
       </p>
 
-      <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
-        <div className="text-sm font-semibold">{explanation.title}</div>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          {explanation.description}
+      {inputs.spendingRule === 'die_with_zero' && (
+        <p className="mb-4 rounded-lg border border-white/10 bg-background/20 p-3 text-sm text-muted-foreground">
+          Target: remain funded through age {dieWithZeroTargetAge} with a{' '}
+          {formatCurrency(dieWithZeroBuffer)} ending buffer in today’s dollars.
         </p>
-      </div>
+      )}
 
       <div className="space-y-3">
         {checkpoints.map((c) => {
@@ -241,16 +299,6 @@ export function IncomeCheckpoints({ checkpoints, inputs }: IncomeCheckpointsProp
                   <div className="col-span-full mt-2 rounded-lg border border-white/10 bg-background/20 p-3">
                     <span className="font-medium">Strategy decision:</span>{' '}
                     <span className="text-muted-foreground">No automatic spending adjustment.</span>
-                  </div>
-                )}
-
-                {inputs.spendingRule === 'die_with_zero' && (
-                  <div className="col-span-full mt-2 rounded-lg border border-white/10 bg-background/20 p-3">
-                    <span className="font-medium">Target:</span>{' '}
-                    <span className="text-muted-foreground">
-                      Remain funded through age {dieWithZeroTargetAge} with a{' '}
-                      {formatCurrency(dieWithZeroBuffer)} ending buffer in today’s dollars.
-                    </span>
                   </div>
                 )}
 

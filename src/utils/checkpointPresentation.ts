@@ -1,48 +1,13 @@
-import { getNormalizedDieWithZeroTargetAge } from '@/lib/calculations/spendingRules';
-import type { CalculatorInputs, IncomeCheckpoint } from '@/types/calculator';
-
-export interface StrategyCheckpointExplanation {
-  title: string;
-  description: string;
-}
+import type { IncomeCheckpoint } from '@/types/calculator';
 
 export interface GuardrailDecisionPresentation {
-  label: 'Within Guardrails' | 'Planned Spending Increase' | 'Planned Spending Cut' | 'Portfolio Depleted';
+  label: string;
   tone: 'good' | 'warn' | 'bad';
   plannedPortfolioWithdrawal: number;
   actualPortfolioWithdrawal: number;
   adjustmentAmount: number;
   resultingTotalSpending: number;
   description: string;
-}
-
-export function getStrategyCheckpointExplanation(
-  inputs: CalculatorInputs,
-): StrategyCheckpointExplanation {
-  if (inputs.spendingRule === 'guardrails') {
-    return {
-      title: 'How Guardrails responds',
-      description:
-        'Guardrails starts with your planned spending and adjusts the portfolio withdrawal when its withdrawal rate moves outside your selected range. A planned cut protects the portfolio; an increase allows more spending when the portfolio is ahead.',
-    };
-  }
-
-  if (inputs.spendingRule === 'die_with_zero') {
-    const targetAge = getNormalizedDieWithZeroTargetAge(inputs);
-    const buffer = Math.max(0, inputs.dieWithZero?.bufferAmount ?? 0);
-
-    return {
-      title: 'How Die With Zero is evaluated',
-      description:
-        `This projection follows your entered spending through age ${targetAge} and checks whether the portfolio stays funded while preserving your $${Math.round(buffer).toLocaleString()} ending buffer in today’s dollars. It does not change your spending to force the balance toward zero.`,
-    };
-  }
-
-  return {
-    title: 'How Fixed Spending works',
-    description:
-      'Fixed Spending follows your entered retirement spending. Social Security and other income reduce the amount withdrawn from investments when they begin, but this strategy does not automatically adjust spending as the portfolio changes.',
-  };
 }
 
 export function getGuardrailDecision(
@@ -75,8 +40,12 @@ export function getGuardrailDecision(
   }
 
   if (checkpoint.guardrailAction === 'cut') {
+    const adjustmentPercent = plannedPortfolioWithdrawal > 0
+      ? Math.round((adjustmentAmount / plannedPortfolioWithdrawal) * 100)
+      : 0;
+
     return {
-      label: 'Planned Spending Cut',
+      label: adjustmentPercent > 0 ? `Reduce ${adjustmentPercent}%` : 'Reduce Withdrawal',
       tone: 'warn',
       plannedPortfolioWithdrawal,
       actualPortfolioWithdrawal,
@@ -87,8 +56,12 @@ export function getGuardrailDecision(
   }
 
   if (checkpoint.guardrailAction === 'raise') {
+    const adjustmentPercent = plannedPortfolioWithdrawal > 0
+      ? Math.round((adjustmentAmount / plannedPortfolioWithdrawal) * 100)
+      : 0;
+
     return {
-      label: 'Planned Spending Increase',
+      label: adjustmentPercent > 0 ? `Increase ${adjustmentPercent}%` : 'Increase Withdrawal',
       tone: checkpoint.stressLevel === 'warn' ? 'warn' : 'good',
       plannedPortfolioWithdrawal,
       actualPortfolioWithdrawal,
@@ -108,6 +81,48 @@ export function getGuardrailDecision(
     description: checkpoint.stressLevel === 'warn'
       ? 'The current withdrawal rate is inside the selected range, so no adjustment is made. The complete deterministic plan is still projected to fall short later.'
       : 'The current withdrawal rate is inside the selected range, so no adjustment is made.',
+  };
+}
+
+export function getGuardrailRatePresentation(
+  currentRate: number,
+  increaseTrigger: number,
+  reductionTrigger: number,
+) {
+  if (!Number.isFinite(currentRate)) {
+    return {
+      zone: 'unavailable' as const,
+      label: 'Current Rate Unavailable',
+      comparisonLabel: 'The portfolio has no balance available for a withdrawal-rate comparison',
+    };
+  }
+
+  const current = Number.isFinite(currentRate) ? Math.max(0, currentRate) : 0;
+  const increase = Number.isFinite(increaseTrigger) ? Math.max(0, increaseTrigger) : 0;
+  const reduction = Number.isFinite(reductionTrigger)
+    ? Math.max(increase, reductionTrigger)
+    : increase;
+
+  if (current > reduction) {
+    return {
+      zone: 'reduce' as const,
+      label: 'Above Reduction Trigger',
+      comparisonLabel: `${((current - reduction) * 100).toFixed(1)} percentage points above the trigger`,
+    };
+  }
+
+  if (current < increase) {
+    return {
+      zone: 'increase' as const,
+      label: 'Below Increase Trigger',
+      comparisonLabel: `${((increase - current) * 100).toFixed(1)} percentage points below the trigger`,
+    };
+  }
+
+  return {
+    zone: 'hold' as const,
+    label: 'Within Guardrails',
+    comparisonLabel: 'No trigger crossed',
   };
 }
 

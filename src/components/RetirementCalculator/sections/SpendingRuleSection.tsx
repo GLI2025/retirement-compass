@@ -10,7 +10,30 @@ type Props = {
   ) => void;
 };
 
+const SPENDING_RULE_SUMMARIES: Record<
+  SpendingRule,
+  { title: string; description: string }
+> = {
+  fixed: {
+    title: "Fixed — Maintain Purchasing Power",
+    description:
+      "Keep approximately the same lifestyle each year after inflation. Spending does not automatically react to market changes.",
+  },
+  guardrails: {
+    title: "Guardrails — Adjust With Markets",
+    description:
+      "Allow portfolio-funded spending to increase or decrease when the withdrawal rate crosses your selected boundaries.",
+  },
+  die_with_zero: {
+    title: "Die With Zero — Target an Ending Balance",
+    description:
+      "Test your entered spending through the target age while aiming to finish with your selected buffer.",
+  },
+};
+
 export function SpendingRuleSection({ inputs, updateInput }: Props) {
+  const selectedRuleSummary = SPENDING_RULE_SUMMARIES[inputs.spendingRule];
+
   return (
     <div className="glass-card p-4 sm:p-6 space-y-4">
       <div>
@@ -52,59 +75,66 @@ export function SpendingRuleSection({ inputs, updateInput }: Props) {
         </div>
       </div>
 
+      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+        <div className="text-sm font-semibold">{selectedRuleSummary.title}</div>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+          {selectedRuleSummary.description}
+        </p>
+      </div>
+
       {inputs.spendingRule === "guardrails" && inputs.guardrails && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StepInput
-            label="Lower Band (0.80 = 80%)"
-            value={inputs.guardrails.lowerBand}
-            onChange={(v) =>
-              updateInput("guardrails", { ...inputs.guardrails!, lowerBand: v })
-            }
-            min={0.1}
-            max={1.0}
-            step={0.01}
-          />
-          <StepInput
-            label="Upper Band (1.20 = 120%)"
-            value={inputs.guardrails.upperBand}
-            onChange={(v) =>
-              updateInput("guardrails", { ...inputs.guardrails!, upperBand: v })
-            }
-            min={1.0}
-            max={3.0}
-            step={0.01}
-          />
-          <StepInput
-            label="Cut % (0.10 = 10%)"
-            value={inputs.guardrails.cutPct}
-            onChange={(v) =>
-              updateInput("guardrails", { ...inputs.guardrails!, cutPct: v })
-            }
-            min={0}
-            max={0.5}
-            step={0.01}
-          />
-          <StepInput
-            label="Raise % (0.10 = 10%)"
-            value={inputs.guardrails.raisePct}
-            onChange={(v) =>
-              updateInput("guardrails", { ...inputs.guardrails!, raisePct: v })
-            }
-            min={0}
-            max={0.5}
-            step={0.01}
-          />
+        <div className="space-y-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StepInput
+              label={`Increase trigger (${Math.round(inputs.guardrails.lowerBand * 100)}% of starting rate)`}
+              value={inputs.guardrails.lowerBand}
+              onChange={(v) =>
+                updateInput("guardrails", { ...inputs.guardrails!, lowerBand: v })
+              }
+              min={0.1}
+              max={1.0}
+              step={0.01}
+            />
+            <StepInput
+              label={`Reduction trigger (${Math.round(inputs.guardrails.upperBand * 100)}% of starting rate)`}
+              value={inputs.guardrails.upperBand}
+              onChange={(v) =>
+                updateInput("guardrails", { ...inputs.guardrails!, upperBand: v })
+              }
+              min={1.0}
+              max={3.0}
+              step={0.01}
+            />
+            <StepInput
+              label={`Portfolio withdrawal reduction (${Math.round(inputs.guardrails.cutPct * 100)}%)`}
+              value={inputs.guardrails.cutPct}
+              onChange={(v) =>
+                updateInput("guardrails", { ...inputs.guardrails!, cutPct: v })
+              }
+              min={0}
+              max={0.5}
+              step={0.01}
+            />
+            <StepInput
+              label={`Portfolio withdrawal increase (${Math.round(inputs.guardrails.raisePct * 100)}%)`}
+              value={inputs.guardrails.raisePct}
+              onChange={(v) =>
+                updateInput("guardrails", { ...inputs.guardrails!, raisePct: v })
+              }
+              min={0}
+              max={0.5}
+              step={0.01}
+            />
+          </div>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Trigger percentages are measured against the withdrawal rate established at
+            retirement. The entered values are multipliers: 0.80 means 80% and 1.20 means 120%.
+          </p>
         </div>
       )}
 
       {inputs.spendingRule === "die_with_zero" && inputs.dieWithZero && (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            The chart uses the retirement spending you enter and tests whether the portfolio
-            reaches your target age with the selected ending buffer. If the projection can
-            support more, the results show a separate spending amount you can choose to test.
-          </p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <StepInput
               label="Portfolio Target Age"
               value={inputs.dieWithZero.targetAge}
@@ -127,7 +157,6 @@ export function SpendingRuleSection({ inputs, updateInput }: Props) {
               prefix="$"
               helperText="Amount to preserve at the target age, in today's dollars."
             />
-          </div>
         </div>
       )}
     </div>
