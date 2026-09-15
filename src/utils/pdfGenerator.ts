@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import { getFundingPresentation } from '@/utils/resultPresentation';
+import type { HousingExportSummary } from '@/lib/calculations/housing';
 
 export interface PDFExportData {
   results: {
@@ -26,6 +27,8 @@ export interface PDFExportData {
     monthlyContribution: number;
     employerContribution: number;
     investmentStrategy: string;
+    // Optional so exports created before Housing Details still render.
+    housing?: HousingExportSummary;
   };
   chartImage?: string;
 }
@@ -76,6 +79,18 @@ export async function generateRetirementPDF(data: PDFExportData): Promise<Blob> 
     doc.text(line, 20, yPosition);
     yPosition += 7;
   });
+
+  const housingLines = data.inputs.housing?.lines ?? [];
+  if (housingLines.length > 0) {
+    yPosition += 3;
+    housingLines.forEach(line => {
+      const wrapped = doc.splitTextToSize(line, pageWidth - 40) as string[];
+      wrapped.forEach(part => {
+        doc.text(part, 20, yPosition);
+        yPosition += 6;
+      });
+    });
+  }
 
   // Results Section
   yPosition += 10;

@@ -1251,7 +1251,8 @@ describe('housing details cash-flow contracts', () => {
     ['own', 'own' as const],
     ['rent', 'rent' as const],
   ])('matches deterministic and Monte Carlo paths for %s housing', (_label, housingPlan) => {
-    const inputs = housingInputs({ housingPlan });
+    // Funded on both plans so the compared balances stay above zero at plan end.
+    const inputs = housingInputs({ housingPlan, currentSavings: 1_500_000 });
     const deterministic = calculateRetirement(inputs);
     const monteCarlo = calculateRetirement(
       { ...inputs, monteCarloEnabled: true },
@@ -1260,10 +1261,12 @@ describe('housing details cash-flow contracts', () => {
 
     expect(monteCarlo.requiredSavings).toBeCloseTo(deterministic.requiredSavings, 6);
     expect(monteCarlo.projectedAtRetirement).toBeCloseTo(deterministic.projectedAtRetirement, 6);
-    expect(monteCarlo.successProbability).toBe(deterministic.deterministicFunded ? 1 : 0);
+    expect(deterministic.deterministicFunded).toBe(true);
+    expect(monteCarlo.successProbability).toBe(1);
     expect(balanceAt(monteCarlo, 62)).toBeCloseTo(balanceAt(deterministic, 62), 4);
     expect(balanceAt(monteCarlo, 70)).toBeCloseTo(balanceAt(deterministic, 70), 4);
     expect(balanceAt(monteCarlo, 90)).toBeCloseTo(balanceAt(deterministic, 90), 4);
+    expect(balanceAt(deterministic, 90)).toBeGreaterThan(0);
     expect(checkpointAt(monteCarlo, 70).monthlyNeed)
       .toBeCloseTo(checkpointAt(deterministic, 70).monthlyNeed, 6);
   });

@@ -167,8 +167,27 @@ Cash-flow conventions:
 - Spending inputs are entered in today's dollars and inflated when inflation is on.
 - Social Security and other income are entered in today's dollars; COLA grows them
   from the current age when enabled, while non-COLA income remains nominal.
-- The mortgage payment is treated as a fixed nominal payment. Lifestyle expenses
-  inflate separately, and the mortgage is removed at the selected payoff age.
+- Monthly Expenses is total lifestyle spending including housing. Housing Details
+  carves the housing portion out of that total once, at the current age, so
+  housing is never counted twice: total expenses = non-housing expenses + housing
+  cost, where non-housing expenses today = max(0, entered expenses - housing cost
+  at the current age).
+- Housing Details is off by default, and every entered dollar then follows the
+  general inflation setting.
+- Own keeps the entered mortgage payment fixed in nominal dollars from the current
+  age until, but not including, the payoff age. Only that payment is fixed;
+  property taxes, insurance, HOA, maintenance, and utilities stay in general
+  expenses and follow lifestyle inflation.
+- Rent is entered in today's dollars and grows from the current age using only the
+  selected rent-growth rate. Rent growth is independent of the general inflation
+  toggle: turning lifestyle inflation off does not stop rent growth, and the
+  general inflation rate is never applied to rent.
+- The housing schedule lives in `src/lib/calculations/housing.ts` and is consumed
+  only through `calculateMonthlyExpenses` in `src/utils/calculations.ts`. Do not
+  reproduce housing formulas in deterministic projections, Monte Carlo, Required
+  Savings, sustainable spending, Guardrails, checkpoints, or PDF output.
+- When the selected housing cost alone cannot be funded, sustainable spending
+  reports `housing-not-supported` rather than a $0 lifestyle budget.
 - If guaranteed income exceeds planned spending, portfolio withdrawal is floored
   at $0. The excess is intentionally ignored rather than added to the portfolio;
   changing that meaning requires a separate approved financial-contract decision.
@@ -352,10 +371,15 @@ What-if toggles
 
 SS on/off changes withdrawals.
 
-Mortgage payoff reduces expenses after payoff age.
+Housing Details off leaves the default projection unchanged.
 
-Mortgage helper text must preserve the model: the mortgage payment is nominal and
-fixed; only the non-mortgage lifestyle portion follows inflation.
+Housing Details + Own reduces expenses beginning at the payoff age.
+
+Housing Details + Rent raises expenses over time even with general inflation off.
+
+Housing helper text must preserve the model: only the entered mortgage payment is
+nominal and fixed, rent grows by its own selected rate, and the remaining
+non-housing portion follows the general inflation setting.
 
 Monte Carlo
 

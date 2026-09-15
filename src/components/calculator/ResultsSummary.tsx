@@ -329,6 +329,18 @@ export function ResultsSummary({ results, inputs }: ResultsSummaryProps) {
           </div>
         </div>
 
+        {results.sustainableSpendingStatus === 'housing-not-supported' && (
+          <div className="mt-4 rounded-lg border border-warning/30 bg-warning/5 p-4">
+            <p className="text-sm font-medium text-foreground">
+              The selected housing cost alone is not supported under these assumptions.
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Lowering other spending cannot fund this plan, so no lifestyle budget is
+              shown. Revisit the Housing Details amounts, savings, or retirement age.
+            </p>
+          </div>
+        )}
+
         {inputs.spendingRule === 'die_with_zero' &&
           sustainableMonthlySpending !== undefined && (
             <div className="mt-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
