@@ -66,7 +66,7 @@ export async function generateRetirementPDF(data: PDFExportData): Promise<Blob> 
   const inputLines = [
     `Current Age: ${data.inputs.currentAge} years`,
     `Retirement Age: ${data.inputs.retirementAge} years`,
-    `Monthly Expenses: ${formatCurrency(data.inputs.monthlyExpenses)}`,
+    `Monthly Expenses (today's dollars): ${formatCurrency(data.inputs.monthlyExpenses)}`,
     `Current Savings: ${formatCurrency(data.inputs.currentSavings)}`,
     `Monthly Contribution: ${formatCurrency(data.inputs.monthlyContribution)} + ${formatCurrency(data.inputs.employerContribution)} employer match`,
     `Investment Strategy: ${data.inputs.investmentStrategy.charAt(0).toUpperCase() + data.inputs.investmentStrategy.slice(1)}`,
@@ -87,25 +87,25 @@ export async function generateRetirementPDF(data: PDFExportData): Promise<Blob> 
   doc.setFontSize(12);
   
   doc.setTextColor(60, 60, 60);
-  doc.text('Required Savings at Retirement:', 20, yPosition);
+  doc.text('Required Savings at retirement (nominal $):', 20, yPosition);
   doc.setTextColor(0, 0, 0);
-  doc.text(formatCurrency(data.results.requiredSavings), 100, yPosition);
+  doc.text(formatCurrency(data.results.requiredSavings), 145, yPosition);
 
   yPosition += 8;
   doc.setTextColor(60, 60, 60);
-  doc.text('Projected Savings at Retirement:', 20, yPosition);
+  doc.text('Projected Savings at retirement (nominal $):', 20, yPosition);
   doc.setTextColor(99, 102, 241);
-  doc.text(formatCurrency(data.results.projectedAtRetirement), 100, yPosition);
+  doc.text(formatCurrency(data.results.projectedAtRetirement), 145, yPosition);
 
   yPosition += 8;
   doc.setTextColor(60, 60, 60);
-  doc.text(`${fundingPresentation.label}:`, 20, yPosition);
+  doc.text(`${fundingPresentation.label} (nominal $):`, 20, yPosition);
   if (fundingPresentation.isFunded) {
     doc.setTextColor(34, 197, 94);
-    doc.text(`${fundingPresentation.sign}${formatCurrency(fundingPresentation.amount)}`, 100, yPosition);
+    doc.text(`${fundingPresentation.sign}${formatCurrency(fundingPresentation.amount)}`, 145, yPosition);
   } else {
     doc.setTextColor(234, 179, 8);
-    doc.text(`${fundingPresentation.sign}${formatCurrency(fundingPresentation.amount)}`, 100, yPosition);
+    doc.text(`${fundingPresentation.sign}${formatCurrency(fundingPresentation.amount)}`, 145, yPosition);
   }
 
   // Status badge
@@ -144,13 +144,15 @@ export async function generateRetirementPDF(data: PDFExportData): Promise<Blob> 
 
     yPosition += 10;
     doc.setFontSize(9);
+    doc.text('Checkpoint amounts are nominal dollars at each displayed age.', 20, yPosition);
+    yPosition += 7;
     
     doc.setTextColor(100, 100, 100);
     doc.text('Age', 20, yPosition);
-    doc.text('Monthly Need', 45, yPosition);
-    doc.text('SS Income', 80, yPosition);
-    doc.text('Other Income', 110, yPosition);
-    doc.text('From Portfolio', 145, yPosition);
+    doc.text('Need', 45, yPosition);
+    doc.text('SS', 80, yPosition);
+    doc.text('Other', 110, yPosition);
+    doc.text('Portfolio', 145, yPosition);
     doc.text('Balance', 175, yPosition);
 
     yPosition += 2;

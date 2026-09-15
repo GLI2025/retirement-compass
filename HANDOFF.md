@@ -28,6 +28,12 @@ Styling: Tailwind
 
 Deployment: currently set up for Cloudflare Pages (there is a wrangler.jsonc)
 
+Development workflow:
+
+Create a feature branch, run tests and the production build, open a pull request,
+review the Cloudflare branch preview, and merge only after approval. Merging into
+GitHub `main` triggers the existing Cloudflare production deployment.
+
 Local setup (developer quick start)
 1) Install
 npm install
@@ -145,13 +151,27 @@ computes baseline withdrawal need
 
 applies spending rule via applySpendingRule(inputs, ctx)
 
-applies market return assumptions (and Monte Carlo if enabled)
+applies deterministic expected-return assumptions, or randomized market returns
+for Monte Carlo when enabled
 
 End age:
 
 normally life expectancy
 
-DWZ uses inputs.dieWithZero.targetAge (clamped to a max)
+DWZ uses one normalized target age: it is rounded, constrained to at least one
+year after retirement, and capped at age 120. That same age controls both the
+plan horizon and the inflation-adjusted ending-buffer target.
+
+Cash-flow conventions:
+
+- Spending inputs are entered in today's dollars and inflated when inflation is on.
+- Social Security and other income are entered in today's dollars; COLA grows them
+  from the current age when enabled, while non-COLA income remains nominal.
+- The mortgage payment is treated as a fixed nominal payment. Lifestyle expenses
+  inflate separately, and the mortgage is removed at the selected payoff age.
+- If guaranteed income exceeds planned spending, portfolio withdrawal is floored
+  at $0. The excess is intentionally ignored rather than added to the portfolio;
+  changing that meaning requires a separate approved financial-contract decision.
 
 Where to make changes safely (common tasks)
 Add / remove a UI section
@@ -172,13 +192,10 @@ File:
 
 src/lib/calculations/spendingRules.ts
 
-DWZ currently:
-
-uses an amortization-style drawdown to approach ~$0 by target age
-
-returns max(baselineNeed, amortizedPayment)
-
-If the product goal is “increase spending safely,” this is the right conceptual place.
+DWZ currently projects the user's entered spending and tests it against the selected
+target age and ending buffer. It does not silently increase the displayed chart
+withdrawal. A separate projection-backed sustainable-spending result estimates a
+monthly amount the user can choose to test.
 
 Change chart horizon / end age rules
 
@@ -336,6 +353,16 @@ What-if toggles
 SS on/off changes withdrawals.
 
 Mortgage payoff reduces expenses after payoff age.
+
+Mortgage helper text must preserve the model: the mortgage payment is nominal and
+fixed; only the non-mortgage lifestyle portion follows inflation.
+
+Monte Carlo
+
+Monte Carlo uses 1,000 randomized paths. Its probability and percentile bands are
+separate from deterministic Required Savings, Projected Savings, Gap, and the
+deterministic income checkpoints. Percentiles use the conventional
+`floor(q * (n - 1))` index.
 
 Build
 

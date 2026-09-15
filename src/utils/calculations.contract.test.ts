@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_INPUTS } from '@/lib/defaults';
+import { DEFAULT_INPUTS, DEFAULT_LIFE_EXPECTANCY } from '@/lib/defaults';
 import {
   applySpendingRule,
   DEFAULT_RETIREMENT_GUARDRAILS,
+  getDieWithZeroTargetBalance,
+  getNormalizedDieWithZeroTargetAge,
 } from '@/lib/calculations/spendingRules';
 import { STRATEGIES, type CalculatorInputs, type CalculatorResults } from '@/types/calculator';
 import {
@@ -18,6 +20,7 @@ import {
   evaluatePlanPathSuccess,
   generateGuidance,
   getRetirementCashFlow,
+  percentileIndex,
   REQUIRED_SAVINGS_SOLVER_DEFAULTS,
   simulateDeterministicRetirement,
   solveRequiredSavings,
@@ -395,6 +398,12 @@ describe('Guardrails and result-presentation contracts', () => {
 });
 
 describe('Monte Carlo test scaffolding', () => {
+  it('uses conventional percentile indexes based on n - 1', () => {
+    expect(percentileIndex(1000, 0.1)).toBe(99);
+    expect(percentileIndex(1000, 0.5)).toBe(499);
+    expect(percentileIndex(1000, 0.9)).toBe(899);
+  });
+
   it('uses exactly one 1,000-path set with no random draws at the plan-end boundary', () => {
     let randomCalls = 0;
     const random = () => {
@@ -462,6 +471,69 @@ describe('Monte Carlo test scaffolding', () => {
 
     expect(replay.chartData).toEqual(first.chartData);
     expect(replay.successProbability).toBe(first.successProbability);
+  });
+
+  it('keeps a zero retirement balance anchored at retirement when a later deposit arrives', () => {
+    const inputs = contractInputs({
+      currentAge: 64,
+      retirementAge: 65,
+      currentSavings: 0,
+      monthlyExpenses: 1000,
+      spendingRule: 'guardrails',
+      guardrails: undefined,
+      oneTimeDeposits: [{
+        id: 'later-deposit',
+        type: 'other',
+        amount: 100_000,
+        ageReceived: 66,
+      }],
+    });
+    const deterministic = calculateRetirement(inputs);
+    const monteCarlo = calculateRetirement(
+      { ...inputs, monteCarloEnabled: true },
+      { random: expectedReturnRandom(inputs.investmentStrategy) },
+    );
+
+    expect(monteCarlo.chartData.map(point => point.age))
+      .toEqual(deterministic.chartData.map(point => point.age));
+    for (const point of deterministic.chartData) {
+      expect(balanceAt(monteCarlo, point.age)).toBeCloseTo(point.balance, 6);
+    }
+    expect(monteCarlo.checkpoints).toEqual(deterministic.checkpoints);
+  });
+});
+
+describe('Die With Zero target normalization', () => {
+  it('uses the clamped plan-end age for both the horizon and buffer target', () => {
+    const inputs = contractInputs({
+      currentAge: 79,
+      retirementAge: 80,
+      inflationEnabled: true,
+      inflationRate: 3,
+      spendingRule: 'die_with_zero',
+      dieWithZero: { targetAge: 10, bufferAmount: 100_000 },
+    });
+    const normalizedTargetAge = getNormalizedDieWithZeroTargetAge(inputs);
+    const results = calculateRetirement(inputs);
+
+    expect(normalizedTargetAge).toBe(81);
+    expect(results.planEndAge).toBe(normalizedTargetAge);
+    expect(results.requiredEndingBalance).toBeCloseTo(
+      getDieWithZeroTargetBalance(inputs),
+      6,
+    );
+    expect(results.requiredEndingBalance).toBeCloseTo(100_000 * 1.03 ** 2, 6);
+  });
+
+  it('preserves the life-expectancy fallback when DWZ target age is omitted', () => {
+    const inputs = contractInputs({
+      currentAge: 60,
+      retirementAge: 65,
+      spendingRule: 'die_with_zero',
+      dieWithZero: undefined,
+    });
+
+    expect(calculateRetirement(inputs).planEndAge).toBe(DEFAULT_LIFE_EXPECTANCY);
   });
 });
 
