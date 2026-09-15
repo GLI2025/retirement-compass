@@ -595,7 +595,7 @@ function generateCheckpoints(
     assumedMonthlyReturn
   });
 
-  const isPlanEnd = inputs.spendingRule === 'die_with_zero' && age === endAge;
+  const isPlanEnd = age === endAge;
   const fromPortfolio = balance < 1 ? 0 : requestedFromPortfolio;
   const spendingGap = Math.max(0, monthlyNeed - (ssIncome + otherIncome + fromPortfolio));
 
@@ -654,6 +654,9 @@ function generateCheckpoints(
     monthlyNeed,
     ssIncome,
     otherIncome,
+    ...(inputs.spendingRule === 'guardrails'
+      ? { plannedFromPortfolio: baselinePortfolioWithdrawal }
+      : {}),
     fromPortfolio,
     spendingGap,
     spendingGapKind,

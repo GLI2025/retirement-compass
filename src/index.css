@@ -144,15 +144,15 @@
   }
 
   .checkpoint-good {
-    @apply bg-success/10 border-success/30 text-success;
+    @apply bg-success/10 border-success/30;
   }
 
   .checkpoint-warn {
-    @apply bg-warning/10 border-warning/30 text-warning;
+    @apply bg-warning/10 border-warning/30;
   }
 
   .checkpoint-bad {
-    @apply bg-destructive/10 border-destructive/30 text-destructive;
+    @apply bg-destructive/10 border-destructive/30;
   }
 
   .tooltip-trigger {

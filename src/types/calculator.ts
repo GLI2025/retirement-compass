@@ -152,6 +152,7 @@ export interface IncomeCheckpoint {
   monthlyNeed: number;
   ssIncome: number;
   otherIncome: number;
+  plannedFromPortfolio?: number;
   fromPortfolio: number;
   spendingGap: number;
   spendingGapKind?: 'guardrail-adjustment' | 'unfunded';

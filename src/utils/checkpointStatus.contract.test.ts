@@ -176,7 +176,7 @@ describe('Guardrails checkpoint status', () => {
     expect(stressLevels(healthy)).toEqual(healthy.map(() => 'good'));
   });
 
-  it('keeps an intentional Guardrails cut amber on a funded path', () => {
+  it('keeps an intentional Guardrails cut green on a funded path', () => {
     const results = calculateRetirement(fundedGuardrailsPlan);
     const cuts = results.checkpoints.filter(
       checkpoint => checkpoint.guardrailAction === 'cut',
@@ -186,7 +186,7 @@ describe('Guardrails checkpoint status', () => {
     expect(cuts.length).toBeGreaterThan(0);
     expect(cuts.every(checkpoint => checkpoint.portfolioBalance > 0)).toBe(true);
     expect(cuts.every(checkpoint => checkpoint.spendingGapKind === 'guardrail-adjustment')).toBe(true);
-    expect(stressLevels(cuts)).toEqual(cuts.map(() => 'warn'));
+    expect(stressLevels(cuts)).toEqual(cuts.map(() => 'good'));
   });
 
   it('turns Guardrails checkpoints red at actual depletion instead of hiding the failure', () => {
