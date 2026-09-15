@@ -1,10 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { OtherIncome } from '@/types/calculator';
 import { StepInput } from './StepInput';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2, Briefcase, Home, DollarSign, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  applyIncomePreset,
+  createOtherIncomeDraft,
+  createOtherIncomeSource,
+  type OtherIncomeDraft,
+} from '@/utils/otherIncomeEntry';
 
 interface OtherIncomeSectionProps {
   incomes: OtherIncome[];
@@ -20,31 +26,39 @@ const incomePresets = [
 
 export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncomeSectionProps) {
   const [isAdding, setIsAdding] = useState(false);
-  const [newIncome, setNewIncome] = useState<Partial<OtherIncome>>({
-    label: '',
-    monthlyAmount: 1000,
-    startAge: currentAge,
-    hasCola: false
-  });
+  const [newIncome, setNewIncome] = useState<OtherIncomeDraft>(() =>
+    createOtherIncomeDraft(currentAge)
+  );
+  const [lastAddedIncome, setLastAddedIncome] = useState<OtherIncome>();
+  const addedStatusRef = useRef<HTMLDivElement>(null);
 
-  const addIncome = (preset?: typeof incomePresets[0]) => {
-    const income: OtherIncome = {
-      id: crypto.randomUUID(),
-      label: preset?.label || newIncome.label || 'Other Income',
-      monthlyAmount: preset?.defaultAmount || newIncome.monthlyAmount || 1000,
-      startAge: newIncome.startAge || currentAge,
-      endAge: newIncome.endAge,
-      hasCola: newIncome.hasCola || false
-    };
-    
+  useEffect(() => {
+    setNewIncome((previous) => ({
+      ...previous,
+      startAge: Math.max(currentAge, previous.startAge ?? currentAge),
+    }));
+  }, [currentAge]);
+
+  useEffect(() => {
+    if (lastAddedIncome) addedStatusRef.current?.focus();
+  }, [lastAddedIncome]);
+
+  const addIncome = () => {
+    const income = createOtherIncomeSource(
+      newIncome,
+      currentAge,
+      crypto.randomUUID(),
+    );
+
     onChange([...incomes, income]);
     setIsAdding(false);
-    setNewIncome({
-      label: '',
-      monthlyAmount: 1000,
-      startAge: currentAge,
-      hasCola: false
-    });
+    setNewIncome(createOtherIncomeDraft(currentAge));
+    setLastAddedIncome(income);
+  };
+
+  const startAdding = () => {
+    setLastAddedIncome(undefined);
+    setIsAdding(true);
   };
 
   const updateIncome = (id: string, updates: Partial<OtherIncome>) => {
@@ -55,10 +69,17 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
 
   const removeIncome = (id: string) => {
     onChange(incomes.filter(inc => inc.id !== id));
+    if (lastAddedIncome?.id === id) setLastAddedIncome(undefined);
   };
 
   return (
     <div className="space-y-4">
+      {incomes.length > 0 && (
+        <div className="rounded-lg border border-success/30 bg-success/5 px-3 py-2 text-sm text-success">
+          {incomes.length} income {incomes.length === 1 ? 'source' : 'sources'} included in this plan
+        </div>
+      )}
+
       {/* Existing income sources */}
       {incomes.map((income) => (
         <div 
@@ -157,6 +178,21 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
         </div>
       ))}
 
+      {lastAddedIncome && !isAdding && (
+        <div
+          ref={addedStatusRef}
+          role="status"
+          tabIndex={-1}
+          className="rounded-xl border border-success/40 bg-success/10 p-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-success"
+        >
+          <span className="font-semibold text-success">Income source added.</span>{' '}
+          <span className="text-muted-foreground">
+            {lastAddedIncome.label} — ${Math.round(lastAddedIncome.monthlyAmount).toLocaleString()}/mo
+            starting at age {lastAddedIncome.startAge}.
+          </span>
+        </div>
+      )}
+
       {/* Add new income */}
       {isAdding ? (
         <div className="glass-card p-4 border border-primary/30 animate-fade-in">
@@ -172,17 +208,33 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
             </button>
           </div>
 
+          <p className="mb-3 text-sm text-muted-foreground">
+            Choose a preset to fill the form, then review and save:
+          </p>
+
           {/* Quick presets */}
           <div className="flex flex-wrap gap-2 mb-4">
             {incomePresets.map((preset) => {
               const Icon = preset.icon;
               return (
                 <button
+                  type="button"
                   key={preset.label}
-                  onClick={() => addIncome(preset)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary/50 hover:bg-primary/20 hover:border-primary/50 border border-transparent transition-all"
+                  onClick={() => setNewIncome((previous) =>
+                    applyIncomePreset(previous, preset)
+                  )}
+                  className={cn(
+                    'flex items-center gap-2 rounded-lg border px-4 py-2 transition-all',
+                    newIncome.label === preset.label
+                      && newIncome.monthlyAmount === preset.defaultAmount
+                      ? 'border-primary bg-primary/20 text-primary'
+                      : 'border-transparent bg-secondary/50 hover:border-primary/50 hover:bg-primary/20',
+                  )}
+                  aria-label={`Use ${preset.label} preset at $${preset.defaultAmount.toLocaleString()} per month`}
+                  aria-pressed={newIncome.label === preset.label
+                    && newIncome.monthlyAmount === preset.defaultAmount}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-4 h-4" aria-hidden="true" />
                   <span className="text-sm font-medium">{preset.label}</span>
                 </button>
               );
@@ -190,13 +242,13 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
           </div>
 
           <div className="text-sm text-muted-foreground mb-4">
-            Or create a custom income source:
+            Or enter a custom income source:
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground" htmlFor="new-income-name">
-                Income Name
+                Income name (optional)
               </label>
               <input
                 id="new-income-name"
@@ -204,13 +256,17 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
                 value={newIncome.label}
                 onChange={(e) => setNewIncome(prev => ({ ...prev, label: e.target.value }))}
                 placeholder="e.g., Consulting"
+                aria-describedby="new-income-name-help"
                 className="glass-input w-full px-4 py-3"
               />
+              <p id="new-income-name-help" className="text-xs text-muted-foreground">
+                Leave blank to use “Other Income.”
+              </p>
             </div>
 
             <StepInput
               label="Monthly amount (today’s dollars)"
-              value={newIncome.monthlyAmount || 1000}
+              value={newIncome.monthlyAmount ?? 1000}
               onChange={(v) => setNewIncome(prev => ({ ...prev, monthlyAmount: v }))}
               min={0}
               step={100}
@@ -219,7 +275,7 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
 
             <StepInput
               label="Start Age"
-              value={newIncome.startAge || currentAge}
+              value={newIncome.startAge ?? currentAge}
               onChange={(v) => setNewIncome(prev => ({ ...prev, startAge: v }))}
               min={currentAge}
               max={100}
@@ -233,7 +289,7 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
               <div className="flex items-center gap-3 h-12">
                 <Switch
                   id="new-income-cola"
-                  checked={newIncome.hasCola || false}
+                  checked={newIncome.hasCola ?? false}
                   onCheckedChange={(v) => setNewIncome(prev => ({ ...prev, hasCola: v }))}
                   aria-label="Inflation adjustment for new income source"
                   className="data-[state=checked]:bg-primary"
@@ -246,19 +302,20 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
 
             <div className="flex items-end">
               <Button
-                onClick={() => addIncome()}
-                disabled={!newIncome.label}
+                type="button"
+                onClick={addIncome}
                 className="gradient-button w-full py-3"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Add Income
+                Save Income Source
               </Button>
             </div>
           </div>
         </div>
       ) : (
         <button
-          onClick={() => setIsAdding(true)}
+          type="button"
+          onClick={startAdding}
           className={cn(
             "w-full p-4 rounded-xl border-2 border-dashed border-border/50",
             "hover:border-primary/50 hover:bg-primary/5 transition-all duration-200",
@@ -266,7 +323,9 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
           )}
         >
           <Plus className="w-5 h-5" />
-          <span className="font-medium">Add Income Source</span>
+          <span className="font-medium">
+            {incomes.length > 0 ? 'Add Another Income Source' : 'Add Income Source'}
+          </span>
         </button>
       )}
 
