@@ -2,11 +2,33 @@ import { describe, expect, it } from 'vitest';
 
 import {
   applyIncomePreset,
+  createIncomeSourceId,
   createOtherIncomeDraft,
   createOtherIncomeSource,
 } from '@/utils/otherIncomeEntry';
 
 describe('other income entry', () => {
+  it('uses randomUUID when the browser provides it', () => {
+    expect(createIncomeSourceId({ randomUUID: () => 'uuid-1' })).toBe('uuid-1');
+  });
+
+  it('creates an ID when randomUUID is unavailable on a mobile browser', () => {
+    const id = createIncomeSourceId({
+      getRandomValues: (values) => {
+        values.set([1, 2, 3, 4]);
+        return values;
+      },
+    });
+
+    expect(id).toBe('income-00000001000000020000000300000004');
+  });
+
+  it('has a dependency-free fallback when the browser crypto API is unavailable', () => {
+    expect(createIncomeSourceId(null, () => 1234, () => 0.5)).toBe(
+      'income-ya-18ce53un18f',
+    );
+  });
+
   it('allows an unnamed source and gives it a useful default label', () => {
     const source = createOtherIncomeSource({
       label: '   ',
