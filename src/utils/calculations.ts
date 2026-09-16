@@ -1,11 +1,11 @@
-import {
+import { STRATEGIES } from '@/types/calculator';
+import type {
   CalculatorInputs,
   CalculatorResults,
   ChartDataPoint,
   IncomeCheckpoint,
   GuidanceItem,
   SustainableSpendingStatus,
-  STRATEGIES
 } from '@/types/calculator';
 
 import {
@@ -111,16 +111,22 @@ export function calculateSSIncome(inputs: CalculatorInputs, age: number): number
 }
 
 export function calculateOtherIncome(inputs: CalculatorInputs, age: number): number {
-  const list = inputs.otherIncome ?? [];
-  return list.reduce((total, income) => {
-    if (age >= income.startAge && (!income.endAge || age <= income.endAge)) {
-      let amount = income.monthlyAmount ?? 0;
-      if (income.hasCola && inputs.inflationEnabled) {
+  const incomeSources = inputs.otherIncome ?? [];
+
+  return incomeSources.reduce((total, incomeSource) => {
+    if (
+      age >= incomeSource.startAge
+      && (!incomeSource.endAge || age <= incomeSource.endAge)
+    ) {
+      let amount = incomeSource.monthlyAmount ?? 0;
+      if (incomeSource.hasCola && inputs.inflationEnabled) {
         const yearsFromNow = Math.max(0, age - inputs.currentAge);
         amount = amount * Math.pow(1 + (inputs.inflationRate ?? 0) / 100, yearsFromNow);
       }
+
       return total + amount;
     }
+
     return total;
   }, 0);
 }
@@ -570,108 +576,112 @@ function generateCheckpoints(
   const totalMonthsFromRetirement = Math.max(0, (endAge - inputs.retirementAge) * 12);
 
   return ages.map(age => {
-  const dataPoint = chartData.find(d => d.age === age);
-  const balance = dataPoint?.balance ?? 0;
+    const dataPoint = chartData.find(point => point.age === age);
+    const balance = dataPoint?.balance ?? 0;
 
-  const cashFlow = getRetirementCashFlow(inputs, age);
-  const monthlyNeed = cashFlow.monthlyExpenses;
-  const ssIncome = cashFlow.ssIncome;
-  const otherIncome = cashFlow.otherIncome;
-  const baselinePortfolioWithdrawal = cashFlow.requestedPortfolioWithdrawal;
+    const cashFlow = getRetirementCashFlow(inputs, age);
+    const monthlyNeed = cashFlow.monthlyExpenses;
+    const ssIncome = cashFlow.ssIncome;
+    const otherIncome = cashFlow.otherIncome;
+    const baselinePortfolioWithdrawal = cashFlow.requestedPortfolioWithdrawal;
 
-  const retirementStartBalance =
-    chartData.find(d => d.age === inputs.retirementAge)?.balance ?? balance;
+    const retirementStartBalance = chartData.find(
+      point => point.age === inputs.retirementAge,
+    )?.balance ?? balance;
 
-  const monthIndexFromRetirement = (age - inputs.retirementAge) * 12;
-  const remainingMonths = Math.max(1, totalMonthsFromRetirement - monthIndexFromRetirement);
+    const monthIndexFromRetirement = (age - inputs.retirementAge) * 12;
+    const remainingMonths = Math.max(
+      1,
+      totalMonthsFromRetirement - monthIndexFromRetirement,
+    );
 
-  const requestedFromPortfolio = applySpendingRule(inputs, {
-    age,
-    monthIndexFromRetirement,
-    remainingMonths,
-    portfolioBalance: balance,
-    retirementStartBalance,
-    baselinePortfolioWithdrawal,
-    assumedMonthlyReturn
-  });
+    const requestedFromPortfolio = applySpendingRule(inputs, {
+      age,
+      monthIndexFromRetirement,
+      remainingMonths,
+      portfolioBalance: balance,
+      retirementStartBalance,
+      baselinePortfolioWithdrawal,
+      assumedMonthlyReturn,
+    });
 
-  const isPlanEnd = age === endAge;
-  const fromPortfolio = balance < 1 ? 0 : requestedFromPortfolio;
-  const spendingGap = Math.max(0, monthlyNeed - (ssIncome + otherIncome + fromPortfolio));
+    const isPlanEnd = age === endAge;
+    const fromPortfolio = balance < 1 ? 0 : requestedFromPortfolio;
+    const spendingGap = Math.max(
+      0,
+      monthlyNeed - (ssIncome + otherIncome + fromPortfolio),
+    );
 
-  const annualBaselineWithdrawal = baselinePortfolioWithdrawal * 12;
-  const annualActualWithdrawal = fromPortfolio * 12;
+    const annualBaselineWithdrawal = baselinePortfolioWithdrawal * 12;
+    const annualActualWithdrawal = fromPortfolio * 12;
 
-  const targetWithdrawalRate =
-    retirementStartBalance > 0
+    const targetWithdrawalRate = retirementStartBalance > 0
       ? annualBaselineWithdrawal / retirementStartBalance
       : (annualBaselineWithdrawal > 0 ? Infinity : 0);
 
-  const currentBaselineWithdrawalRate =
-    balance > 0
+    const currentBaselineWithdrawalRate = balance > 0
       ? annualBaselineWithdrawal / balance
       : (annualBaselineWithdrawal > 0 ? Infinity : 0);
 
-  const actualWithdrawalRate =
-    balance > 0
+    const actualWithdrawalRate = balance > 0
       ? annualActualWithdrawal / balance
       : (annualActualWithdrawal > 0 ? Infinity : 0);
 
-  let lowerGuardrailRate: number | undefined;
-  let upperGuardrailRate: number | undefined;
-  let guardrailAction: 'raise' | 'cut' | 'none' = 'none';
+    let lowerGuardrailRate: number | undefined;
+    let upperGuardrailRate: number | undefined;
+    let guardrailAction: 'raise' | 'cut' | 'none' = 'none';
 
-  if (inputs.spendingRule === 'guardrails') {
-    const g = inputs.guardrails ?? DEFAULT_RETIREMENT_GUARDRAILS;
+    if (inputs.spendingRule === 'guardrails') {
+      const guardrails = inputs.guardrails ?? DEFAULT_RETIREMENT_GUARDRAILS;
 
-    lowerGuardrailRate = targetWithdrawalRate * g.lowerBand;
-    upperGuardrailRate = targetWithdrawalRate * g.upperBand;
+      lowerGuardrailRate = targetWithdrawalRate * guardrails.lowerBand;
+      upperGuardrailRate = targetWithdrawalRate * guardrails.upperBand;
 
-    if (currentBaselineWithdrawalRate > upperGuardrailRate) {
-      guardrailAction = 'cut';
-    } else if (currentBaselineWithdrawalRate < lowerGuardrailRate) {
-      guardrailAction = 'raise';
+      if (currentBaselineWithdrawalRate > upperGuardrailRate) {
+        guardrailAction = 'cut';
+      } else if (currentBaselineWithdrawalRate < lowerGuardrailRate) {
+        guardrailAction = 'raise';
+      }
     }
-  }
 
-  const status = resolveCheckpointStress(planOutcome, {
-    age,
-    portfolioBalance: balance,
-    requestedPortfolioWithdrawal: requestedFromPortfolio,
-    isPlanEndAge: age === endAge,
-    guardrailAction,
+    const status = resolveCheckpointStress(planOutcome, {
+      age,
+      portfolioBalance: balance,
+      requestedPortfolioWithdrawal: requestedFromPortfolio,
+      isPlanEndAge: age === endAge,
+      guardrailAction,
+    });
+
+    const spendingGapKind = spendingGap > 0.5
+      ? inputs.spendingRule === 'guardrails' && guardrailAction === 'cut' && balance >= 1
+        ? 'guardrail-adjustment' as const
+        : 'unfunded' as const
+      : undefined;
+
+    return {
+      age,
+      label: labelForAge(inputs, age),
+      monthlyNeed,
+      ssIncome,
+      otherIncome,
+      ...(inputs.spendingRule === 'guardrails'
+        ? { plannedFromPortfolio: baselinePortfolioWithdrawal }
+        : {}),
+      fromPortfolio,
+      spendingGap,
+      spendingGapKind,
+      portfolioBalance: balance,
+      withdrawalRate: actualWithdrawalRate,
+      stressLevel: status,
+      isPlanEnd,
+      targetStatus: isPlanEnd ? targetStatus : undefined,
+      targetWithdrawalRate,
+      currentBaselineWithdrawalRate,
+      lowerGuardrailRate,
+      upperGuardrailRate,
+      guardrailAction,
+    };
   });
-
-  const spendingGapKind = spendingGap > 0.5
-    ? inputs.spendingRule === 'guardrails' && guardrailAction === 'cut' && balance >= 1
-      ? 'guardrail-adjustment' as const
-      : 'unfunded' as const
-    : undefined;
-
-  return {
-    age,
-    label: labelForAge(inputs, age),
-    monthlyNeed,
-    ssIncome,
-    otherIncome,
-    ...(inputs.spendingRule === 'guardrails'
-      ? { plannedFromPortfolio: baselinePortfolioWithdrawal }
-      : {}),
-    fromPortfolio,
-    spendingGap,
-    spendingGapKind,
-    portfolioBalance: balance,
-    withdrawalRate: actualWithdrawalRate,
-    stressLevel: status,
-    isPlanEnd,
-    targetStatus: isPlanEnd ? targetStatus : undefined,
-    targetWithdrawalRate,
-    currentBaselineWithdrawalRate,
-    lowerGuardrailRate,
-    upperGuardrailRate,
-    guardrailAction
-  };
-});
 }
 // ------------------------------
 // Guidance
@@ -817,7 +827,8 @@ function simulatePath(
   const bondVol = 0.05;
 
   let balance = startingBalance;
-  let monthlyContrib = (inputs.monthlyContribution ?? 0) + (inputs.employerContribution ?? 0);
+  let monthlyContribution =
+    (inputs.monthlyContribution ?? 0) + (inputs.employerContribution ?? 0);
   const balances: number[] = [];
   let depletedBeforePlanEnd = false;
 
@@ -829,8 +840,8 @@ function simulatePath(
 
   for (let age = inputs.currentAge; age <= endAge; age++) {
     const deposits = (inputs.oneTimeDeposits ?? [])
-      .filter(d => d.ageReceived === age)
-      .reduce((sum, d) => sum + (d.amount ?? 0), 0);
+      .filter(deposit => deposit.ageReceived === age)
+      .reduce((sum, deposit) => sum + (deposit.amount ?? 0), 0);
     balance += deposits;
 
     balances.push(Math.max(0, balance));
@@ -847,11 +858,11 @@ function simulatePath(
     if (age < inputs.retirementAge) {
       for (let month = 0; month < 12; month++) {
         const monthlyReturn = sampleLognormalMonthlyReturn(muMonthlyLog, sigmaMonthly, random);
-        balance = balance * (1 + monthlyReturn) + monthlyContrib;
+        balance = balance * (1 + monthlyReturn) + monthlyContribution;
       }
 
       if (inputs.annualIncreaseEnabled) {
-        monthlyContrib *= 1 + (inputs.annualIncreaseRate ?? 0) / 100;
+        monthlyContribution *= 1 + (inputs.annualIncreaseRate ?? 0) / 100;
       }
     } else {
       const cashFlow = getRetirementCashFlow(inputs, age);

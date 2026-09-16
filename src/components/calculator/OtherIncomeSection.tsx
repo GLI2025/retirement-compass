@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { OtherIncome } from '@/types/calculator';
-import { StepInput } from './StepInput';
+import { Briefcase, DollarSign, Home, Plus, Trash2, X } from 'lucide-react';
+import type { OtherIncome } from '@/types/calculator';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Briefcase, Home, DollarSign, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   applyIncomePreset,
@@ -12,6 +11,7 @@ import {
   createOtherIncomeSource,
   type OtherIncomeDraft,
 } from '@/utils/otherIncomeEntry';
+import { StepInput } from './StepInput';
 
 interface OtherIncomeSectionProps {
   incomes: OtherIncome[];
@@ -28,7 +28,7 @@ const incomePresets = [
 export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncomeSectionProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newIncome, setNewIncome] = useState<OtherIncomeDraft>(() =>
-    createOtherIncomeDraft(currentAge)
+    createOtherIncomeDraft(currentAge),
   );
   const [lastAddedIncome, setLastAddedIncome] = useState<OtherIncome>();
   const [saveError, setSaveError] = useState<string>();
@@ -71,13 +71,13 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
   };
 
   const updateIncome = (id: string, updates: Partial<OtherIncome>) => {
-    onChange(incomes.map(inc => 
-      inc.id === id ? { ...inc, ...updates } : inc
+    onChange(incomes.map(income =>
+      income.id === id ? { ...income, ...updates } : income,
     ));
   };
 
   const removeIncome = (id: string) => {
-    onChange(incomes.filter(inc => inc.id !== id));
+    onChange(incomes.filter(income => income.id !== id));
     if (lastAddedIncome?.id === id) setLastAddedIncome(undefined);
   };
 
@@ -91,7 +91,7 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
 
       {/* Existing income sources */}
       {incomes.map((income) => (
-        <div 
+        <div
           key={income.id}
           className="glass-card p-4 border border-border/50 animate-fade-in"
         >
@@ -103,7 +103,7 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
               <input
                 type="text"
                 value={income.label}
-                onChange={(e) => updateIncome(income.id, { label: e.target.value })}
+                onChange={(event) => updateIncome(income.id, { label: event.target.value })}
                 aria-label="Income source name"
                 className="bg-transparent font-semibold text-lg focus:outline-none focus:border-b border-primary"
                 placeholder="Income source name"
@@ -123,21 +123,21 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
             <StepInput
               label="Monthly amount (today’s dollars)"
               value={income.monthlyAmount}
-              onChange={(v) => updateIncome(income.id, { monthlyAmount: v })}
+              onChange={(value) => updateIncome(income.id, { monthlyAmount: value })}
               min={0}
               step={100}
               prefix="$"
             />
-            
+
             <StepInput
               label="Start Age"
               value={income.startAge}
-              onChange={(v) => updateIncome(income.id, { startAge: v })}
+              onChange={(value) => updateIncome(income.id, { startAge: value })}
               min={currentAge}
               max={100}
               step={1}
             />
-            
+
             <div className="space-y-2">
               <label
                 className="text-sm font-medium text-muted-foreground"
@@ -150,8 +150,8 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
                   id={`income-${income.id}-end-age`}
                   type="number"
                   value={income.endAge || ''}
-                  onChange={(e) => updateIncome(income.id, { 
-                    endAge: e.target.value ? parseInt(e.target.value) : undefined 
+                  onChange={(event) => updateIncome(income.id, {
+                    endAge: event.target.value ? parseInt(event.target.value) : undefined,
                   })}
                   aria-describedby={`income-${income.id}-end-age-help`}
                   placeholder="Lifetime"
@@ -174,7 +174,7 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
                 <Switch
                   id={`income-${income.id}-cola`}
                   checked={income.hasCola}
-                  onCheckedChange={(v) => updateIncome(income.id, { hasCola: v })}
+                  onCheckedChange={(value) => updateIncome(income.id, { hasCola: value })}
                   aria-label={`Inflation adjustment for ${income.label || 'income source'}`}
                   className="data-[state=checked]:bg-primary"
                 />
@@ -225,6 +225,9 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
           <div className="flex flex-wrap gap-2 mb-4">
             {incomePresets.map((preset) => {
               const Icon = preset.icon;
+              const isSelected = newIncome.label === preset.label
+                && newIncome.monthlyAmount === preset.defaultAmount;
+
               return (
                 <button
                   type="button"
@@ -234,14 +237,12 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
                   )}
                   className={cn(
                     'flex items-center gap-2 rounded-lg border px-4 py-2 transition-all',
-                    newIncome.label === preset.label
-                      && newIncome.monthlyAmount === preset.defaultAmount
+                    isSelected
                       ? 'border-primary bg-primary/20 text-primary'
                       : 'border-transparent bg-secondary/50 hover:border-primary/50 hover:bg-primary/20',
                   )}
                   aria-label={`Use ${preset.label} preset at $${preset.defaultAmount.toLocaleString()} per month`}
-                  aria-pressed={newIncome.label === preset.label
-                    && newIncome.monthlyAmount === preset.defaultAmount}
+                  aria-pressed={isSelected}
                 >
                   <Icon className="w-4 h-4" aria-hidden="true" />
                   <span className="text-sm font-medium">{preset.label}</span>
@@ -263,7 +264,10 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
                 id="new-income-name"
                 type="text"
                 value={newIncome.label}
-                onChange={(e) => setNewIncome(prev => ({ ...prev, label: e.target.value }))}
+                onChange={(event) => setNewIncome(previous => ({
+                  ...previous,
+                  label: event.target.value,
+                }))}
                 placeholder="e.g., Consulting"
                 aria-describedby="new-income-name-help"
                 className="glass-input w-full px-4 py-3"
@@ -276,7 +280,10 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
             <StepInput
               label="Monthly amount (today’s dollars)"
               value={newIncome.monthlyAmount ?? 1000}
-              onChange={(v) => setNewIncome(prev => ({ ...prev, monthlyAmount: v }))}
+              onChange={(value) => setNewIncome(previous => ({
+                ...previous,
+                monthlyAmount: value,
+              }))}
               min={0}
               step={100}
               prefix="$"
@@ -285,7 +292,10 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
             <StepInput
               label="Start Age"
               value={newIncome.startAge ?? currentAge}
-              onChange={(v) => setNewIncome(prev => ({ ...prev, startAge: v }))}
+              onChange={(value) => setNewIncome(previous => ({
+                ...previous,
+                startAge: value,
+              }))}
               min={currentAge}
               max={100}
               step={1}
@@ -299,7 +309,10 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
                 <Switch
                   id="new-income-cola"
                   checked={newIncome.hasCola ?? false}
-                  onCheckedChange={(v) => setNewIncome(prev => ({ ...prev, hasCola: v }))}
+                  onCheckedChange={(value) => setNewIncome(previous => ({
+                    ...previous,
+                    hasCola: value,
+                  }))}
                   aria-label="Inflation adjustment for new income source"
                   className="data-[state=checked]:bg-primary"
                 />
