@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Sparkles, Activity } from 'lucide-react';
-import { CalculatorInputs, CalculatorResults } from '@/types/calculator';
+import type { CalculatorInputs, CalculatorResults } from '@/types/calculator';
 
 import { DEFAULT_INPUTS } from '@/lib/defaults';
 import {
@@ -8,27 +8,22 @@ import {
   generateGuidance,
   MONTE_CARLO_RUNS,
 } from '@/utils/calculations';
-import { OtherIncomeSourcesSection } from "./sections/OtherIncomeSourcesSection";
-
-import { YourInformationSection } from "./sections/YourInformationSection";
-import { HousingSection } from "./sections/HousingSection";
-
-import { InflationOptionSection } from "./sections/InflationOptionSection";
-import { SpendingRuleSection } from "./sections/SpendingRuleSection";
-
-import { StepInput } from "../calculator/StepInput";
-import { StrategySelect } from "../calculator/StrategySelect";
-import { ToggleOption } from "../calculator/ToggleOption";
-import { PortfolioChart } from "../calculator/PortfolioChart";
-import { IncomeCheckpoints } from "../calculator/IncomeCheckpoints";
-import { GuidancePanel } from "../calculator/GuidancePanel";
-import { EducationalBox } from "../calculator/EducationalBox";
-import { ResultsSummary } from "../calculator/ResultsSummary";
-import { ResetButtons } from "../calculator/ResetButtons";
-import { CalculatorNavigation } from "../calculator/CalculatorNavigation";
-
-import { ExportPDFButton } from "../calculator/ExportPDFButton";
-
+import { CalculatorNavigation } from '../calculator/CalculatorNavigation';
+import { EducationalBox } from '../calculator/EducationalBox';
+import { ExportPDFButton } from '../calculator/ExportPDFButton';
+import { GuidancePanel } from '../calculator/GuidancePanel';
+import { IncomeCheckpoints } from '../calculator/IncomeCheckpoints';
+import { PortfolioChart } from '../calculator/PortfolioChart';
+import { ResetButtons } from '../calculator/ResetButtons';
+import { ResultsSummary } from '../calculator/ResultsSummary';
+import { StepInput } from '../calculator/StepInput';
+import { StrategySelect } from '../calculator/StrategySelect';
+import { ToggleOption } from '../calculator/ToggleOption';
+import { HousingSection } from './sections/HousingSection';
+import { InflationOptionSection } from './sections/InflationOptionSection';
+import { OtherIncomeSourcesSection } from './sections/OtherIncomeSourcesSection';
+import { SpendingRuleSection } from './sections/SpendingRuleSection';
+import { YourInformationSection } from './sections/YourInformationSection';
 
 export function RetirementCalculator() {
   const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_INPUTS);
@@ -181,21 +176,18 @@ export function RetirementCalculator() {
         <EducationalBox />
 
         {/* Your Information */}
-      <YourInformationSection inputs={inputs} updateInput={updateInput} />
-
+        <YourInformationSection inputs={inputs} updateInput={updateInput} />
 
         {/* Other Income Sources */}
         <OtherIncomeSourcesSection inputs={inputs} updateInput={updateInput} />
 
-
-       {/* Advanced Options */}
+        {/* Advanced Options */}
         <section id="inflation" className="space-y-4">
           <h2 className="text-lg font-semibold">Advanced Options</h2>
-        
+
           <InflationOptionSection inputs={inputs} updateInput={updateInput} />
           <SpendingRuleSection inputs={inputs} updateInput={updateInput} />
         </section>
-
 
         {/* What-If Scenarios */}
         <section id="whatif" className="space-y-4">
