@@ -255,7 +255,7 @@ export function OtherIncomeSection({ incomes, onChange, currentAge }: OtherIncom
             Or enter a custom income source:
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground" htmlFor="new-income-name">
                 Income name (optional)
