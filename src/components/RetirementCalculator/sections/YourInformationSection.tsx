@@ -1,3 +1,22 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Collects the ages, current retirement savings, monthly lifestyle
+ * spending, personal contributions, and employer contributions used by the
+ * main Retirement Calculator.
+ *
+ * Inputs/outputs: Receives CalculatorInputs and reports individual edits to
+ * RetirementCalculator.tsx. Monthly expenses are entered in today's dollars;
+ * current savings and contributions are amounts at the time they are entered.
+ * This component displays no deterministic or Monte Carlo results.
+ *
+ * Important behavior: Moving current age to or beyond retirement age also
+ * moves retirement age one year later. Social Security, other income, housing,
+ * deposits, inflation, and spending rules are collected by other sections.
+ *
+ * Financial impact: High. These values establish the saving period, retirement
+ * date, starting assets, contributions, and baseline spending sent to the engine.
+ */
 import { Calculator } from "lucide-react";
 import type { CalculatorInputs } from "@/types/calculator";
 import { StepInput } from "@/components/calculator/StepInput";

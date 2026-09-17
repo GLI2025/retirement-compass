@@ -1,3 +1,23 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Lets the user select Fixed, Guardrails, or Die With Zero and enter
+ * the additional settings required by the selected retirement spending rule.
+ *
+ * Inputs/outputs: Receives CalculatorInputs and returns rule, trigger, target-age,
+ * and buffer edits to RetirementCalculator.tsx. A Die With Zero ending buffer is
+ * entered in today's dollars; guardrail values are multipliers or percentages.
+ *
+ * Important behavior: This component supplies defaults when a newly selected
+ * rule has no settings, but it does not calculate withdrawals. The deterministic
+ * engine and Monte Carlo paths apply the selected rule alongside Social Security,
+ * other income, housing/mortgage, deposits, and inflation. Fixed leaves spending
+ * unchanged, Guardrails may adjust portfolio-funded spending, and Die With Zero
+ * tests entered spending against its target age and ending buffer.
+ *
+ * Financial impact: High. Incorrect settings could change withdrawal timing,
+ * spending adjustments, plan end, or the required ending target.
+ */
 import type { CalculatorInputs, SpendingRule } from "@/types/calculator";
 import { StepInput } from "@/components/calculator/StepInput";
 import { DEFAULT_RETIREMENT_GUARDRAILS } from "@/lib/calculations/spendingRules";

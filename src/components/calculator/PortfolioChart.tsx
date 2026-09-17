@@ -1,3 +1,23 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Draws the portfolio-balance projection and marks retirement, Social
+ * Security claim age, and any displayed early-depletion age.
+ *
+ * Inputs/outputs: Receives chart points and plan metadata from
+ * RetirementCalculator.tsx. Deterministic points use balance; Monte Carlo points
+ * use percentile balances, with p50 as the median line. Portfolio balances are
+ * nominal dollars at each age rather than today's-dollar spending amounts.
+ *
+ * Important behavior: This component does not generate cash flows or market
+ * returns. The supplied data already includes Social Security, other income,
+ * housing/mortgage, deposits, inflation, and the selected Fixed/Guardrails/Die
+ * With Zero rule. Monte Carlo bands and success counts are kept visually distinct
+ * from the single deterministic projection.
+ *
+ * Financial impact: Medium. Chart selection or labeling errors could misrepresent
+ * depletion or uncertainty even when the underlying projection is correct.
+ */
 import { 
   AreaChart, 
   Area, 

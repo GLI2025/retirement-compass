@@ -1,3 +1,23 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Explains selected retirement ages as checkpoints, including portfolio
+ * balance, income, spending, portfolio withdrawal, runway, and rule decisions.
+ *
+ * Inputs/outputs: Receives deterministic IncomeCheckpoint records and CalculatorInputs
+ * from RetirementCalculator.tsx. Checkpoint cash values are nominal dollars at that
+ * age; future cost is also translated to today's buying power for comparison.
+ *
+ * Important behavior: Checkpoints stay deterministic even when Monte Carlo is
+ * enabled. The engine has already applied Social Security and other income at
+ * their start ages, housing/mortgage timing, deposits, inflation, and the selected
+ * spending rule. This component presents Fixed as unchanged, visualizes Guardrails
+ * triggers and adjustments, and states the Die With Zero target age and buffer.
+ * It uses shared presentation helpers for funded, warning, and depleted states.
+ *
+ * Financial impact: Medium. Incorrect presentation logic could mislabel a healthy
+ * checkpoint or obscure a spending adjustment without changing the projection.
+ */
 import type { CalculatorInputs, IncomeCheckpoint } from '@/types/calculator';
 import { cn } from '@/lib/utils';
 import { getNormalizedDieWithZeroTargetAge } from '@/lib/calculations/spendingRules';

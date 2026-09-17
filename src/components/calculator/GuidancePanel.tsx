@@ -1,3 +1,21 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Renders the recommendation cards produced by the main financial
+ * engine, using success or action-oriented styling and icons.
+ *
+ * Inputs/outputs: Receives GuidanceItem records and the deterministic on-track
+ * flag from RetirementCalculator.tsx, then displays their existing text and values.
+ * It does not calculate, round, or convert money and has no independent dollar basis.
+ *
+ * Important behavior: Social Security, other income, housing/mortgage, deposits,
+ * inflation, and Fixed/Guardrails/Die With Zero effects are already reflected in
+ * the supplied guidance. This component performs neither deterministic projection
+ * nor Monte Carlo simulation; it only presents engine output.
+ *
+ * Financial impact: Low to medium. Changing item selection or the on-track flag
+ * could present the wrong advice even though the financial results are unchanged.
+ */
 import { GuidanceItem } from '@/types/calculator';
 import { cn } from '@/lib/utils';
 import { 

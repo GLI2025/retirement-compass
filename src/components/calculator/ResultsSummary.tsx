@@ -1,3 +1,25 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Presents the calculator's headline, Required Savings, Projected
+ * Savings, deterministic Gap or Surplus, and the retirement-income breakdown.
+ *
+ * Inputs/outputs: Receives CalculatorResults and CalculatorInputs from
+ * RetirementCalculator.tsx and renders summary text and cards. It converts
+ * nominal retirement-age amounts back to today's dollars for comparable display.
+ *
+ * Important behavior: Required Savings, Projected Savings, Gap, sustainable
+ * spending, and cash-flow outcomes come from the engine. This component only
+ * recomputes the Social Security and other-income amounts available at retirement
+ * for display, using the same timing helpers. Income that starts later is listed
+ * separately. Monte Carlo probability can drive its own headline, while the
+ * deterministic Gap/Surplus remains explicitly labeled. Housing, mortgage payoff,
+ * deposits, inflation, and Fixed/Guardrails/Die With Zero are already reflected
+ * in the supplied results.
+ *
+ * Financial impact: High. Display-time timing or dollar-basis mistakes could make
+ * correct engine results appear internally contradictory.
+ */
 import type { CalculatorInputs, CalculatorResults } from '@/types/calculator';
 import { useState } from 'react';
 import {
