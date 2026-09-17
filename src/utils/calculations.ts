@@ -1,3 +1,25 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: This is the main Retirement Calculator engine. It grows savings to
+ * retirement, projects monthly retirement cash flow, solves Required Savings
+ * and sustainable spending, builds checkpoints/guidance, and can run 1,000
+ * randomized Monte Carlo paths.
+ *
+ * Inputs/outputs: It receives CalculatorInputs and returns CalculatorResults
+ * for the RetirementCalculator UI, chart, summary, checkpoints, PDF, and Monte
+ * Carlo worker. User-entered spending and COLA-enabled income begin as today's
+ * dollars; the projection converts them to comparable future nominal dollars.
+ * Fixed nominal income stays unchanged. Housing follows housing.ts.
+ *
+ * Important behavior: Deterministic results use the selected expected return;
+ * Monte Carlo randomizes returns but reuses the same income, housing, deposit,
+ * and Fixed/Guardrails/Die With Zero cash-flow rules. Premature depletion stays
+ * a failure, and Die With Zero must also meet its ending buffer.
+ *
+ * Financial impact: High. Small timing, dollar-basis, or loop changes can alter
+ * Required Savings, funded status, charts, guidance, and Monte Carlo results.
+ */
 import { STRATEGIES } from '@/types/calculator';
 import type {
   CalculatorInputs,

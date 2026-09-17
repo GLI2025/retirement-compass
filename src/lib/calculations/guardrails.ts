@@ -1,3 +1,24 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Runs the separate Guardrails Calculator's annual Monte Carlo model,
+ * calibrates starting income and raise/cut thresholds, summarizes success and
+ * risk ranges, and saves a snapshot for its Methods and Volatility pages.
+ *
+ * Inputs/outputs: It receives GuardrailsInputs and returns GuardrailsResults.
+ * Dollar amounts are used in the consistent annual units supplied by that
+ * calculator. Income growth is modeled in real terms as nominal COLA minus CPI;
+ * this file does not use the main Retirement Calculator's monthly cash-flow or
+ * housing schedule.
+ *
+ * Important behavior: It supports total-income and legacy withdrawal engines,
+ * optional seeded randomness, and fixed product risk-model constants. The
+ * GuardrailsCalculator, GuardrailsMethods, and GuardrailsVolatility components
+ * depend on its results or saved snapshot.
+ *
+ * Financial impact: High. Return assumptions, probability triggers, simulation
+ * order, or search bounds directly change the calculator's recommendations.
+ */
 import { GuardrailsInputs, GuardrailsResults, IncomeStream } from '@/types/guardrails';
 
 /**

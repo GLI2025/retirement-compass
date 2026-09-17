@@ -1,3 +1,22 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Rebuilds the Guardrails Volatility page's 10th-, 50th-, and
+ * 90th-percentile portfolio paths from the most recent Guardrails run.
+ *
+ * Inputs/outputs: It receives the saved Guardrails run configuration and
+ * results, simulates annual balances with a fixed seed, and returns chart-ready
+ * percentile arrays. It uses the same annual dollar units and real-income COLA
+ * treatment as the standalone Guardrails engine.
+ *
+ * Important behavior: This is intentionally a simplified display simulation;
+ * it does not apply mid-course Guardrails resets and is not the main Retirement
+ * Calculator's deterministic or Monte Carlo engine. GuardrailsVolatility.tsx
+ * is its active consumer.
+ *
+ * Financial impact: Medium to high. Changes affect the volatility chart and can
+ * make its displayed risk ranges inconsistent with the Guardrails model.
+ */
 import type { GuardrailsResults } from '@/types/guardrails';
 import type { GuardrailsRunConfig } from '@/lib/calculations/guardrails';
 

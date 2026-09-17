@@ -1,3 +1,22 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Converts completed main-calculator results into consistent funded,
+ * gap, depletion, and checkpoint status labels for the screen and PDF.
+ *
+ * Inputs/outputs: It receives already-calculated balances and deterministic
+ * plan outcomes, then returns labels, signs, amounts, depletion ages, and
+ * green/amber/red checkpoint states. It does not project returns or cash flow.
+ * Dollar values retain the basis supplied by calculations.ts.
+ *
+ * Important behavior: Checkpoint health follows the complete deterministic
+ * plan, including permanent early-depletion failure and the Die With Zero
+ * buffer. ResultsSummary, PortfolioChart, pdfGenerator, and calculations.ts
+ * depend on these decisions.
+ *
+ * Financial impact: Medium to high. The math is upstream, but incorrect status
+ * logic could present a failed plan as funded or create conflicting messages.
+ */
 import type {
   ChartDataPoint,
   IncomeCheckpoint,

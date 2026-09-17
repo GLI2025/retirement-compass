@@ -1,3 +1,17 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Converts a future nominal dollar amount into today's buying power
+ * and calculates the number of years between two ages.
+ *
+ * Inputs/outputs: It receives a nominal amount, time, and annual inflation rate
+ * and returns the equivalent today-dollar amount. ResultsSummary and
+ * IncomeCheckpoints use these helpers for explanatory displays; this file does
+ * not run the retirement projection itself.
+ *
+ * Financial impact: Medium. Incorrect conversion would not change portfolio
+ * balances, but it would make displayed future and today-dollar values disagree.
+ */
 export function toTodayDollars(
   nominal: number,
   yearsFromNow: number,
