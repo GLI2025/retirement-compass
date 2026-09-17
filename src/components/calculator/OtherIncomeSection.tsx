@@ -1,3 +1,24 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Provides the add, edit, remove, and preset controls for pensions,
+ * rental income, part-time work, and custom non-Social-Security income sources.
+ *
+ * Inputs/outputs: Receives the current OtherIncome array and current age from
+ * OtherIncomeSourcesSection.tsx, then returns a replacement array after each saved
+ * change. Monthly amounts are entered in today's dollars. With COLA enabled the
+ * engine grows them from current age; otherwise they remain fixed nominal payments.
+ * Start and optional end ages define when each source is available.
+ *
+ * Important behavior: Selecting a preset fills the form but does not add income
+ * until Save is used. This component validates and stores inputs; it performs no
+ * deterministic or Monte Carlo cash-flow math. The engine later combines saved
+ * sources with Social Security, housing/mortgage, deposits, inflation, and the
+ * selected Fixed/Guardrails/Die With Zero rule.
+ *
+ * Financial impact: High. Failure to save, update, or preserve timing and COLA
+ * settings could omit or misstate income throughout retirement projections.
+ */
 import { useEffect, useRef, useState } from 'react';
 import { Briefcase, DollarSign, Home, Plus, Trash2, X } from 'lucide-react';
 import type { OtherIncome } from '@/types/calculator';

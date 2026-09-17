@@ -1,3 +1,24 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: This is the main Retirement Calculator page coordinator. It owns
+ * the user's inputs, asks calculations.ts for results, and connects the input
+ * sections to the summary, chart, checkpoints, guidance, and PDF controls.
+ *
+ * Inputs/outputs: It starts with DEFAULT_INPUTS, receives edits from its child
+ * sections, and supplies CalculatorInputs and CalculatorResults to the display
+ * components. Index.tsx is the application page that renders this component.
+ *
+ * Important behavior: The deterministic projection updates immediately. When
+ * Monte Carlo is enabled, a debounced web worker returns randomized market
+ * paths; request tracking prevents an older result from replacing newer input.
+ * This file wires Social Security, other income, housing/mortgage, deposits,
+ * inflation, and Fixed/Guardrails/Die With Zero options to the engine, but does
+ * not implement their formulas or convert their dollar bases itself.
+ *
+ * Financial impact: High. Incorrect state or result wiring could make sections
+ * use different assumptions even if the underlying formulas remain correct.
+ */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Sparkles, Activity } from 'lucide-react';
 import type { CalculatorInputs, CalculatorResults } from '@/types/calculator';

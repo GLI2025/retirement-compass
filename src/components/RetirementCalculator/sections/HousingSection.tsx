@@ -1,3 +1,23 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Collects whether the user owns or rents and the housing details the
+ * shared housing schedule needs to separate housing from total monthly expenses.
+ *
+ * Inputs/outputs: Receives CalculatorInputs and reports housing edits to
+ * RetirementCalculator.tsx. Rent is entered in today's dollars and grows by the
+ * selected rent rate. A mortgage payment is fixed nominal dollars until payoff.
+ *
+ * Important behavior: Housing remains included in total lifestyle spending;
+ * these fields identify the portion that follows rent growth or ends at mortgage
+ * payoff, so it is not added twice. This UI performs no deterministic or Monte
+ * Carlo projection; both projections consume the same engine housing schedule.
+ * Social Security, other income, deposits, inflation, and spending rules are
+ * handled elsewhere, except general inflation applies to non-housing spending.
+ *
+ * Financial impact: High. Incorrect inputs or double counting can materially
+ * overstate or understate retirement spending and Required Savings.
+ */
 import { useId } from "react";
 import type { CalculatorInputs, HousingPlan } from "@/types/calculator";
 import { ToggleOption } from "@/components/calculator/ToggleOption";

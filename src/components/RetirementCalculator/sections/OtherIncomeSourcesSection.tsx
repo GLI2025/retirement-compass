@@ -1,4 +1,22 @@
 
+/**
+ * Plain-English guide
+ *
+ * Purpose: Introduces the additional-income inputs and connects the reusable
+ * OtherIncomeSection form to the main calculator's otherIncome list.
+ *
+ * Inputs/outputs: Receives CalculatorInputs and returns the edited income-source
+ * array to RetirementCalculator.tsx. Entered monthly amounts are today's dollars.
+ * With COLA on, the engine grows an amount from current age; with COLA off, it
+ * remains nominal. Income begins only at its selected start age.
+ *
+ * Important behavior: This wrapper performs no deterministic or Monte Carlo
+ * math. Social Security has separate controls, while the engine combines all
+ * applicable income with housing, deposits, inflation, and the spending rule.
+ *
+ * Financial impact: Medium. Incorrect wiring could omit, duplicate, or mistime
+ * pensions and other income in every downstream projection.
+ */
 import { Wallet } from "lucide-react";
 import type { CalculatorInputs } from "@/types/calculator";
 import { OtherIncomeSection } from "@/components/calculator/OtherIncomeSection";
