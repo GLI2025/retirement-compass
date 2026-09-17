@@ -1,3 +1,24 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Displays volatility, drawdown, and percentile portfolio paths for
+ * the most recent standalone Guardrails Calculator run.
+ *
+ * Inputs/outputs: Loads the saved GuardrailsSnapshot and passes it to
+ * buildPercentilePaths(), then renders annual p10, p50, and p90 balances plus
+ * telemetry from the original run. Values remain in the saved Guardrails model's
+ * annual dollar basis; this component performs no today's-to-nominal conversion.
+ *
+ * Important behavior: The chart paths are randomized market simulations rebuilt
+ * with a fixed seed, but the helper intentionally omits mid-course Guardrails
+ * resets. The page does not use the main calculator's other income, housing,
+ * mortgage payoff, deposits, Fixed, or Die With Zero rules. Social Security and
+ * pension timing come only from the saved standalone run. guardrailsVolatility.ts
+ * supplies the chart data, and GuardrailsVolatilityPage.tsx renders this component.
+ *
+ * Financial impact: Medium to high. Incorrect snapshot or percentile handling
+ * could make the risk chart disagree with the Guardrails results users just ran.
+ */
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';

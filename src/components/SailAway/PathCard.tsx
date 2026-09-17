@@ -1,3 +1,25 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Displays and edits one SailAway path, including departure timing,
+ * financing, remote work, runway, stress results, chart, and balance sheet.
+ *
+ * Inputs/outputs: Receives one path's state, shared loan settings, user age, and
+ * base/stress simulation results from SailAwayCalculator.tsx. It reports path and
+ * loan edits back to that parent. Displayed future cash, debt, and boat values
+ * are projected nominal dollars from sailAway.ts; loan snapshots use the entered
+ * principal, rates, terms, and current nominal payments.
+ *
+ * Important behavior: This file formats simulation output and independently
+ * calculates only presentation-level departure ages, chart rows, and loan
+ * snapshots using shared loan helpers. It does not run the runway simulation or
+ * the main retirement engine. Social Security, other income, main housing and
+ * mortgage payoff, deposits, inflation toggles, and Fixed/Guardrails/Die With
+ * Zero are outside SailAway; its stress path is not a Monte Carlo probability.
+ *
+ * Financial impact: Medium to high. Incorrect timing, loan, or chart calculations
+ * could make a correct SailAway simulation appear misleading.
+ */
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import {
   PathKey, PathState, LoanType, SailAwayInputs, PathBothResults,

@@ -1,3 +1,24 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Projects an account balance from recurring employee contributions,
+ * employer matching, salary growth, and a constant investment return, with an
+ * optional comparison that increases the employee contribution rate by 2%.
+ *
+ * Inputs/outputs: Sends the starting balance, salary, contribution and match
+ * terms, return, raises, years, and contribution frequency to savingsCalculator.ts.
+ * It displays contribution totals, growth, final balance, and yearly chart data.
+ * Inputs begin in current nominal dollars; future balances are nominal projections
+ * because the tool does not adjust them back to today's purchasing power.
+ *
+ * Important behavior: Both scenarios are deterministic, not Monte Carlo. This
+ * standalone accumulation tool has no Social Security, other income, housing,
+ * mortgage payoff, deposits, inflation setting, or Fixed/Guardrails/Die With Zero
+ * retirement withdrawals. SavingsCalculatorPage.tsx renders this component.
+ *
+ * Financial impact: High. Incorrect contribution frequency, match, or chart
+ * mapping could materially overstate or understate accumulated savings.
+ */
 import { useMemo, useState } from 'react';
 import { PiggyBank } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';

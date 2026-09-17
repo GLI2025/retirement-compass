@@ -1,3 +1,26 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Owns the standalone Guardrails Calculator's inputs, runs its annual
+ * Monte Carlo engine, displays probability-based income guidance, and saves the
+ * latest run for the Methods and Volatility pages.
+ *
+ * Inputs/outputs: Collects ages, portfolio, annual withdrawal or income goals,
+ * pension, Social Security, COLAs, inflation, and simulation settings, then
+ * displays GuardrailsResults from guardrails.ts. Amounts use the engine's annual
+ * starting-dollar framework; income COLA is modeled net of CPI.
+ *
+ * Important behavior: This is randomized Monte Carlo logic, not the main
+ * Retirement Calculator's monthly deterministic/Monte Carlo model. It has no
+ * other-income list, housing or mortgage schedule, deposits, Fixed rule, or Die
+ * With Zero rule. Guardrails.ts owns the formulas; this component controls when
+ * they run. Guardrails.ts, this component, and its saved snapshot support the
+ * two Guardrails explanation pages. Guardrails.ts is the calculation dependency,
+ * and pages/Guardrails.tsx renders this component.
+ *
+ * Financial impact: High. Incorrect input mapping could change income timing,
+ * withdrawal mode, simulation count, or the displayed raise/cut guidance.
+ */
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, Loader2 } from 'lucide-react';
