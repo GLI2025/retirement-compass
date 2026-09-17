@@ -1,3 +1,23 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Provides one shared housing-cost schedule for the main Retirement
+ * Calculator and prepares matching housing descriptions for the PDF export.
+ *
+ * Inputs/outputs: It receives housing fields from CalculatorInputs, normalizes
+ * invalid values, and returns the housing cost at a requested age. An owned
+ * mortgage stays fixed in nominal dollars until payoff. Rent starts in today's
+ * dollars and grows only by the selected rent-growth rate.
+ *
+ * Important behavior: Monthly Expenses already includes housing, so this file
+ * removes today's housing portion before the general lifestyle inflation is
+ * applied. calculations.ts, HousingSection, and ExportPDFButton depend on it;
+ * deterministic, Required Savings, sustainable spending, and Monte Carlo paths
+ * therefore use the same housing schedule.
+ *
+ * Financial impact: High. Double-counting housing or shifting payoff/growth
+ * timing would change withdrawals and all downstream retirement results.
+ */
 import type { CalculatorInputs, HousingPlan } from '@/types/calculator';
 import { DEFAULT_INPUTS } from '@/lib/defaults';
 

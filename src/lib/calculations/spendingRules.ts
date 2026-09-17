@@ -1,3 +1,22 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Chooses the portfolio withdrawal for one retirement month under
+ * Fixed, Guardrails, or Die With Zero and normalizes the Die With Zero target.
+ *
+ * Inputs/outputs: It receives the main calculator inputs plus the current
+ * nominal balance and nominal monthly need, then returns a nominal withdrawal.
+ * The Die With Zero buffer is entered in today's dollars and is converted to a
+ * nominal target balance when inflation is enabled.
+ *
+ * Important behavior: Fixed and Die With Zero withdraw the user's calculated
+ * portfolio need. Guardrails may raise or cut that need when its withdrawal-rate
+ * triggers are crossed. Both deterministic and Monte Carlo projections call
+ * these same rules through calculations.ts.
+ *
+ * Financial impact: High. Changes can alter every retirement path, Required
+ * Savings, checkpoint decisions, and whether a plan meets its ending target.
+ */
 import type { CalculatorInputs, GuardrailsConfig, SpendingRule } from '@/types/calculator';
 import { DEFAULT_LIFE_EXPECTANCY } from '@/lib/defaults';
 

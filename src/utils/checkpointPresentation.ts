@@ -1,3 +1,21 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Turns a calculated Guardrails income checkpoint into the wording,
+ * color tone, withdrawal comparison, and rate-scale positions shown to users.
+ *
+ * Inputs/outputs: It receives an IncomeCheckpoint from calculations.ts and
+ * returns presentation-ready labels and amounts. Checkpoint monthly amounts are
+ * nominal dollars at that future age; this file does not convert dollar bases
+ * or decide whether the overall plan is funded.
+ *
+ * Important behavior: It distinguishes intentional Guardrails raises/cuts from
+ * an unfunded withdrawal and shows where the current rate sits relative to the
+ * selected triggers. IncomeCheckpoints.tsx is its active consumer.
+ *
+ * Financial impact: Medium. It should not change projections, but errors can
+ * misstate why spending changed or visually misrepresent a withdrawal rate.
+ */
 import type { IncomeCheckpoint } from '@/types/calculator';
 
 export interface GuardrailDecisionPresentation {

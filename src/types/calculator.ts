@@ -1,3 +1,24 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Defines the shared vocabulary for the main Retirement Calculator:
+ * its inputs, strategies, housing/income/deposit records, chart/checkpoint data,
+ * guidance, and final results.
+ *
+ * Inputs/outputs: These TypeScript types describe data rather than calculate it.
+ * STRATEGIES is the exception: it supplies the expected returns and allocations
+ * used by deterministic and Monte Carlo calculations. Field comments identify
+ * mixed dollar bases, including today's-dollar rent and Die With Zero buffer
+ * versus fixed-nominal mortgage payments.
+ *
+ * Important behavior: RetirementCalculator, calculations.ts, presentation
+ * utilities, chart/checkpoint components, defaults, worker, and PDF flow share
+ * these contracts. Social Security, other income, housing, deposits, inflation,
+ * and all spending rules are represented here, but implemented elsewhere.
+ *
+ * Financial impact: High. Changing a type alone is usually descriptive, but
+ * changing STRATEGIES or a field's meaning can alter results across the app.
+ */
 // Investment strategy definitions
 export type InvestmentStrategy =
   | 'conservative'
