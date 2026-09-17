@@ -1,3 +1,23 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Explains the standalone Guardrails model and builds a short worked
+ * example from the latest saved Guardrails run.
+ *
+ * Inputs/outputs: Loads a GuardrailsSnapshot from guardrails.ts and displays its
+ * engine, portfolio, CPI, guaranteed income, and withdrawal schedule. Values use
+ * the same annual starting-dollar framework as that saved run; nominal COLA is
+ * reduced by CPI when the example grows pension or Social Security income.
+ *
+ * Important behavior: The worked example deterministically reconstructs only
+ * the income and withdrawal rows; it does not rerun the randomized market paths.
+ * It describes the separate total-income and legacy Guardrails engines. It does
+ * not use the main calculator's other income, housing/mortgage, deposits, Fixed,
+ * or Die With Zero logic. GuardrailsMethodsPage.tsx renders this component.
+ *
+ * Financial impact: Medium. Incorrect formulas here would not alter a saved
+ * result, but could teach users a calculation that differs from the engine.
+ */
 import { Link } from 'react-router-dom';
 import { loadGuardrailsSnapshot } from '@/lib/calculations/guardrails';
 

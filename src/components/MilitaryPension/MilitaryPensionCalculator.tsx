@@ -1,3 +1,24 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Collects active-duty service details and displays an estimated
+ * military pension under Final/High-36, REDUX, BRS, or disability rules.
+ *
+ * Inputs/outputs: Sends branch, pay plan, grade, years of service, retirement
+ * plan, and any pay override or disability percentage to militaryPension.ts.
+ * It displays the selected 2025 DFAS monthly basic pay, multiplier, monthly and
+ * annual pension, and a copyable explanation. These are nominal 2025-dollar
+ * estimates; the tool does not project COLA, inflation, taxes, or future years.
+ *
+ * Important behavior: This is a deterministic estimator, not Monte Carlo. It
+ * does not use the main Retirement Calculator's Social Security, other income,
+ * housing/mortgage, deposits, or Fixed/Guardrails/Die With Zero rules.
+ * pages/MilitaryPension.tsx renders this component, and militaryPension.ts owns
+ * its pay tables and formulas.
+ *
+ * Financial impact: High. Incorrect branch, grade, pay, or plan mapping could
+ * materially misstate estimated retired pay.
+ */
 import { useState, useMemo } from 'react';
 import { Award } from 'lucide-react';
 import { MilitaryPensionInputs, MilitaryBranch, PayPlan, RetirementPlanType } from '@/types/militaryPension';

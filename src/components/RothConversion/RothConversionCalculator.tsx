@@ -1,3 +1,24 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Compares a one-year tax estimate with and without a planned Roth
+ * conversion and displays tax, bracket, pro-rata, ACA, NIIT, and IRMAA effects.
+ *
+ * Inputs/outputs: Sends filing status, ages, annual income, Social Security,
+ * deductions, IRA basis/balance, conversion, and state-tax inputs to
+ * rothConversion.ts. It renders baseline and conversion scenarios plus warnings.
+ * Dollar amounts are nominal dollars for the configured tax year, not a
+ * today-dollar retirement projection, and no inflation conversion is performed.
+ *
+ * Important behavior: This is deterministic tax modeling, not Monte Carlo.
+ * Social Security is used for taxation; rental income and mortgage interest are
+ * tax inputs, not retirement cash-flow schedules. It does not model other-income
+ * timing, housing payoff, deposits, or Fixed/Guardrails/Die With Zero spending.
+ * pages/RothConversion.tsx renders it; rothConversion.ts owns the formulas.
+ *
+ * Financial impact: High. Incorrect input mapping or scenario comparison could
+ * materially misstate taxes or threshold warnings.
+ */
 import { useMemo, useState } from 'react';
 import { Landmark } from 'lucide-react';
 import { RothConversionInputs, FilingStatus, DeductionType, StateTaxMode } from '@/types/rothConversion';

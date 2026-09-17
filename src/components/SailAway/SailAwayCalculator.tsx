@@ -1,3 +1,25 @@
+/**
+ * Plain-English guide
+ *
+ * Purpose: Owns the SailAway inputs and compares three departure paths: leave
+ * now, save before leaving, or wait for traditional retirement.
+ *
+ * Inputs/outputs: Sends savings, portfolio, earnings, sailing costs, loan terms,
+ * inflation, returns, remote/passive income, and stress settings to sailAway.ts.
+ * It receives a base and stress result for each path and passes them to PathCard.
+ * Entered amounts are current nominal dollars; the monthly engine grows selected
+ * future costs by inflation and reports projected nominal cash balances.
+ *
+ * Important behavior: Results are repeatable for the same inputs. Stress settings
+ * can use fixed or seeded pseudo-random yearly adjustments, but this is not the
+ * main Retirement Calculator's Monte Carlo analysis. SailAway has its own passive
+ * and remote income, loans, and boat costs; it does not use Social Security, the
+ * main housing/mortgage schedule, deposits, or Fixed/Guardrails/Die With Zero
+ * rules. SailAwayPage.tsx renders this component; PathCard displays each path.
+ *
+ * Financial impact: High. Incorrect state or path mapping could make the three
+ * alternatives use different assumptions than the user entered.
+ */
 import { useMemo, useState } from 'react';
 import { Sailboat } from 'lucide-react';
 import { SailAwayInputs, PathKey, LoanType } from '@/types/sailAway';
